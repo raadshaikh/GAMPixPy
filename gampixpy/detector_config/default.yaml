@@ -1,0 +1,7 @@
+anode:
+  z: 0
+
+boundaries:
+  x_range: [-1000, 1000]
+  y_range: [-1000, 1000]
+  z_range: [0, 1000]

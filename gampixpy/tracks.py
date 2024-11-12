@@ -1,10 +1,14 @@
 class Track:
     def __init__(self, sample_positions, sample_charges):
-        self.positions = sample_positions
-        self.charges = sample_charges
+        self.raw_track = {'position': sample_positions,
+                          'charge': sample_charges}
 
-        self.drifted_positions = []
-        self.drifted_charges = []
+        # self.drifted_track = {'position': None,
+        #                       'charge': None}
+        self.drifted_track = {}
+
+        self.pixel_samples = {}
+        self.coarse_tiles_samples = {}
 
 # this seems to be relevant only for specific inputs
 # let's not use this for now

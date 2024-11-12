@@ -1,0 +1,22 @@
+material:
+  name: LAr
+  long_name: "Liquid Argon"
+  temperature: 110.0
+  w: 0.0220
+  recombination: 0.3000
+  fano: 0.1160
+  sigma_p: 0.0600
+
+charge_drift:
+  electron_lifetime: 10.0e-3
+  drift_field: 0.5e5 # V/m
+  diffusion_fraction: 1.0
+
+light:
+  spe_threshold: 3.0
+  spe_noise: 0.2
+  collection: 0.1
+
+spatial_resolution:
+  sigma_transverse: 0.5e-3
+  sigma_longitudinal: 0.5e-3
