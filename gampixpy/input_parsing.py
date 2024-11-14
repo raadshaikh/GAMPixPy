@@ -1,10 +1,9 @@
-from .tracks import Track, Segment
+from .tracks import Track
 
 import numpy as np
 
 class InputParser:
     def __init__(self, input_filename, sequential_sampling = True):
-        print ("init parent class")
         self.input_filename = input_filename
 
         self.sampling_order = []

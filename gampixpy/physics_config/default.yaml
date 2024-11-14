@@ -8,9 +8,10 @@ material:
   sigma_p: 0.0600
 
 charge_drift:
-  electron_lifetime: 10.0e-3
-  drift_field: 0.5e5 # V/m
+  electron_lifetime: 1.0e+4 # us
+  drift_field: 5.0e3 # V/cm
   diffusion_fraction: 1.0
+  velocity: 0.16 # cm/us
 
 light:
   spe_threshold: 3.0

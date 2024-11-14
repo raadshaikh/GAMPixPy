@@ -2,12 +2,18 @@ from gampixpy import detector, input_parsing
 
 def main(args):
 
-    edepsim_track = input_parsing.EdepSimParser(args.input_edepsim_file)
+    input_parser = input_parsing.EdepSimParser(args.input_edepsim_file)
+    edepsim_track = input_parser.get_edepsim_event(args.event_index)
+    print (edepsim_track.raw_track)
 
-    detector_model = detector.DetectorModel(None, None, None)
+    detector_model = detector.DetectorModel()
 
     detector_model.drift(edepsim_track)
+    print (edepsim_track.drifted_track)
+
     detector_model.readout(edepsim_track)
+    print (edepsim_track.pixel_samples)
+    print (edepsim_track.coarse_tiles_samples)
     
     return
 
