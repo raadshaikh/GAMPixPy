@@ -10,6 +10,7 @@ class PixelSample:
         self.hit_measurement = hit_measurement
 
 class CoarseGridSample:
-    def __init__(self, coarse_cell_id, coarse_cell_measurement):
+    def __init__(self, coarse_cell_id, measurement_time, coarse_cell_measurement):
         self.coarse_cell_id = coarse_cell_id
+        self.coarse_measurement_time = measurement_time
         self.coarse_cell_measurement = coarse_cell_measurement

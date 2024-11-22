@@ -1,6 +1,7 @@
 import gampixpy
 import os
 import yaml
+import numpy as np
 
 class Config (dict):
     def __init__(self, config_filename):
@@ -36,6 +37,25 @@ class ReadoutConfig (Config):
         # compute any required parameters from
         # those specified in the YAML
 
+        # need to handle the case where the pitch doesn't evenly divide the span of the anode
+        self['n_pixels_x'] = int((self['anode']['x_range'][1] - self['anode']['x_range'][0])/self['pixels']['pitch'])
+        self['n_pixels_y'] = int((self['anode']['y_range'][1] - self['anode']['y_range'][0])/self['pixels']['pitch'])
+
+        self['n_tiles_x'] = int((self['anode']['x_range'][1] - self['anode']['x_range'][0])/self['coarse_tiles']['pitch'])
+        self['n_tiles_y'] = int((self['anode']['y_range'][1] - self['anode']['y_range'][0])/self['coarse_tiles']['pitch'])
+
+        # self['pixel_volume_edges'] = (np.linspace(self['anode']['x_range'][0],
+        #                                           self['anode']['x_range'][1],
+        #                                           self['n_pixels_x']+1),
+        #                               np.linspace(self['anode']['y_range'][0],
+        #                                           self['anode']['y_range'][1],
+        #                                           self['n_pixels_y']+1))
+        self['tile_volume_edges'] = (np.linspace(self['anode']['x_range'][0],
+                                                 self['anode']['x_range'][1],
+                                                 self['n_tiles_x']+1),
+                                     np.linspace(self['anode']['y_range'][0],
+                                                 self['anode']['y_range'][1],
+                                                 self['n_tiles_y']+1))
         return
 
 default_detector_params = DetectorConfig(os.path.join(gampixpy.__path__[0],

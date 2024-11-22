@@ -76,7 +76,8 @@ class EdepSimParser (InputParser):
         #  - sample with fixed amount of charge
         #  - sample with fixed number of samples per segment
 
-        sample_density = 1.e4 # samples per unit length
+        # sample_density = 1.e4 # samples per unit length
+        sample_density = 1.e3 # samples per unit length
         start_vec = np.array([segments['x_start'],
                               segments['y_start'],
                               segments['z_start']])
