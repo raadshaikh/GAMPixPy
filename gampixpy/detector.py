@@ -102,7 +102,8 @@ class GAMPixModel:
                 window_charge = padded_charge[self.readout_config['coarse_tiles']['integration_length']:] -\
                                 padded_charge[:-self.readout_config['coarse_tiles']['integration_length']]
 
-                threshold = 0.1 # not really the hit threshold
+                # threshold = 0.1 # not really the hit threshold
+                threshold = self.readout_config['coarse_tiles']['noise']*self.readout_config['coarse_tiles']['threshold_sigma']
                 # threshold_crossing_mask = np.diff(window_charge > threshold)[:-self.readout_config['coarse_tiles']['integration_length']+1]
                 threshold_crossing_mask = np.diff(window_charge > threshold)
                 # if np.any(threshold_crossing_mask[:-self.readout_config['coarse_tiles']['integration_length']+1]):
@@ -166,7 +167,9 @@ class GAMPixModel:
                 window_charge = padded_charge[self.readout_config['coarse_tiles']['integration_length']:] -\
                                 padded_charge[:-self.readout_config['coarse_tiles']['integration_length']]
 
-                threshold = 0.5 # not really the hit threshold
+                # threshold = 0.5 # not really the hit threshold
+                threshold = self.readout_config['coarse_tiles']['noise']*self.readout_config['coarse_tiles']['threshold_sigma']
+
                 threshold_crossing_mask = window_charge[1:-self.readout_config['coarse_tiles']['integration_length']] > threshold
 
                 if np.any(threshold_crossing_mask):
@@ -282,7 +285,8 @@ class GAMPixModel:
                 window_charge = padded_charge[self.readout_config['pixels']['integration_length']:] -\
                                 padded_charge[:-self.readout_config['pixels']['integration_length']]
 
-                threshold = 5.e-5 # not really the hit threshold
+                # threshold = 5.e-5 # not really the hit threshold
+                threshold = self.readout_config['pixels']['noise']*self.readout_config['pixels']['threshold_sigma']
                 threshold_crossing_mask = window_charge[1:-self.readout_config['pixels']['integration_length']] > threshold
 
                 if np.any(threshold_crossing_mask):

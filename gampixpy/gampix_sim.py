@@ -1,15 +1,24 @@
+import gampixpy
 from gampixpy import detector, input_parsing, plotting, config
 
 def main(args):
 
     input_parser = input_parsing.EdepSimParser(args.input_edepsim_file)
     edepsim_track = input_parser.get_edepsim_event(args.event_index)
-    evd = plotting.EventDisplay(edepsim_track)
+    # evd = plotting.EventDisplay(edepsim_track)
     # print (edepsim_track.raw_track)
 
     # evd.plot_raw_track()
 
-    detector_model = detector.DetectorModel()
+    # detector_model = detector.DetectorModel() # default configs
+    import os
+    gampixD_readout_config = config.ReadoutConfig(os.path.join(gampixpy.__path__[0],
+                                                               'readout_config',
+                                                               'GAMPixD.yaml'))
+    detector_model = detector.DetectorModel(# detector_params = DetectorConfig('gampixpy/detector_config,
+                                            # physics_params = ,
+                                            readout_params = gampixD_readout_config,
+                                            ) 
 
     detector_model.drift(edepsim_track)
     # print (edepsim_track.drifted_track)
@@ -19,14 +28,40 @@ def main(args):
 
     detector_model.readout(edepsim_track)
     # print (edepsim_track.pixel_samples)
-    # print (edepsim_track.coarse_tiles_samples)
-    print (edepsim_track.pixel_samples)
-    evd.plot_coarse_tile_measurement(config.default_readout_params)
-    evd.plot_pixel_measurement(config.default_readout_params)
+    print (edepsim_track.coarse_tiles_samples)
+    # print (edepsim_track.pixel_samples)
+    # evd.plot_coarse_tile_measurement(config.default_readout_params)
+    # evd.plot_pixel_measurement(config.default_readout_params)
     # evd.plot_raw_track()
-    evd.plot_drifted_track()
-    evd.show()
-    
+    # evd.plot_drifted_track()
+    # evd.show()
+
+    import numpy as np
+    import os
+    coarse_charges = np.array([sample.coarse_cell_measurement
+                               for sample in edepsim_track.coarse_tiles_samples])
+    coarse_times = np.array([sample.coarse_measurement_time
+                             for sample in edepsim_track.coarse_tiles_samples])
+
+    pixel_charges = np.array([sample.hit_measurement
+                              for sample in edepsim_track.pixel_samples])
+    pixel_times = np.array([sample.hit_timestamp
+                            for sample in edepsim_track.pixel_samples])
+    output_prefix = './'
+    np.save(os.path.join(output_prefix,
+                         'pixel_samples.npy'),
+            pixel_charges)
+    np.save(os.path.join(output_prefix,
+                          'tile_samples.npy'),
+            coarse_charges)
+    np.save(os.path.join(output_prefix,
+                         'pixel_timing.npy'),
+            pixel_times)
+    np.save(os.path.join(output_prefix,
+                          'tile_timing.npy'),
+            coarse_times)
+
+
     return
 
 if __name__ == '__main__':

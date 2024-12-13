@@ -66,7 +66,10 @@ class EdepSimParser (InputParser):
         return Track(charge_points, charge_values)
 
     def do_recombination(self, segments):
-        charge_yield_per_energy = 1 # just do a constant factor right now
+        R = 0.3
+        W_ION = 23.6e-6
+        # charge_yield_per_energy = 1 # just do a constant factor right now
+        charge_yield_per_energy = R/W_ION
     
         return segments['dE']*charge_yield_per_energy
     
