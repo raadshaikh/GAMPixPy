@@ -33,9 +33,6 @@ class GAMPixModel:
         # find hits on fine pixels
         self.fine_pixel_hits = self.pixel_hit_finding(track, fine_pixel_timeseries)
 
-        # do fine pixel binning / time series formation (using coarse grid activations)
-        # find hits on fine grid
-
         return 
 
     def transverse_tile_binning(self, track):
@@ -53,6 +50,7 @@ class GAMPixModel:
 
         tile_centers = np.array([self.readout_config['tile_volume_edges'][i][tile_ind[:,i]] + 0.5*self.readout_config['coarse_tiles']['pitch']
                                  for i in range(2)]).T
+        print ("tile centers", tile_centers)
 
         z_series = track.drifted_track['position'][inside_anode_mask,2]
         charge_series = track.drifted_track['charge'][inside_anode_mask]
@@ -77,59 +75,59 @@ class GAMPixModel:
         elif method == 'charge_density':
             return self.tile_hit_finding_charge_density(track, tile_timeseries)
 
-    def tile_hit_finding_current_rise(self, track, tile_timeseries):
-        hits = []
+    # def tile_hit_finding_current_rise(self, track, tile_timeseries):
+    #     hits = []
 
-        n_z_bins = int((self.readout_config['anode']['z_range'][1] - self.readout_config['anode']['z_range'][0])/self.readout_config['coarse_tiles']['z_bin_width'])
+    #     n_z_bins = int((self.readout_config['anode']['z_range'][1] - self.readout_config['anode']['z_range'][0])/self.readout_config['coarse_tiles']['z_bin_width'])
 
-        drift_bin_edges = np.linspace(self.readout_config['anode']['z_range'][0],
-                                      self.readout_config['anode']['z_range'][1],
-                                      n_z_bins + 1,
-                                      )
-        print ("tile response", tile_timeseries)
-        for tile_center, timeseries in tile_timeseries.items():
-            sorted_series = np.sort(timeseries, axis = 0)
-            inst_charge, _ = np.histogram(timeseries[:,0],
-                                          weights = timeseries[:,1],
-                                          bins = drift_bin_edges)
-            cum_charge = np.cumsum(inst_charge)
+    #     drift_bin_edges = np.linspace(self.readout_config['anode']['z_range'][0],
+    #                                   self.readout_config['anode']['z_range'][1],
+    #                                   n_z_bins + 1,
+    #                                   )
+    #     print ("tile response", tile_timeseries)
+    #     for tile_center, timeseries in tile_timeseries.items():
+    #         sorted_series = np.sort(timeseries, axis = 0)
+    #         inst_charge, _ = np.histogram(timeseries[:,0],
+    #                                       weights = timeseries[:,1],
+    #                                       bins = drift_bin_edges)
+    #         cum_charge = np.cumsum(inst_charge)
 
-            no_hits = False
-            while not no_hits:
-                padded_charge = np.pad(cum_charge,
-                                       self.readout_config['coarse_tiles']['integration_length'],
-                                       mode = 'edge')
-                window_charge = padded_charge[self.readout_config['coarse_tiles']['integration_length']:] -\
-                                padded_charge[:-self.readout_config['coarse_tiles']['integration_length']]
+    #         no_hits = False
+    #         while not no_hits:
+    #             padded_charge = np.pad(cum_charge,
+    #                                    self.readout_config['coarse_tiles']['integration_length'],
+    #                                    mode = 'edge')
+    #             window_charge = padded_charge[self.readout_config['coarse_tiles']['integration_length']:] -\
+    #                             padded_charge[:-self.readout_config['coarse_tiles']['integration_length']]
 
-                # threshold = 0.1 # not really the hit threshold
-                threshold = self.readout_config['coarse_tiles']['noise']*self.readout_config['coarse_tiles']['threshold_sigma']
-                # threshold_crossing_mask = np.diff(window_charge > threshold)[:-self.readout_config['coarse_tiles']['integration_length']+1]
-                threshold_crossing_mask = np.diff(window_charge > threshold)
-                # if np.any(threshold_crossing_mask[:-self.readout_config['coarse_tiles']['integration_length']+1]):
-                if np.any(threshold_crossing_mask[:-self.readout_config['coarse_tiles']['integration_length']+1]):
-                    # print (drift_bin_edges[:-1][threshold_crossing_mask[:-self.readout_config['coarse_tiles']['integration_length']+1]])
-                    threshold_crossing_z = drift_bin_edges[:-1][threshold_crossing_mask[:-self.readout_config['coarse_tiles']['integration_length']+1]][0]
-                    print (tile_center, np.arange(len(drift_bin_edges)-1)[threshold_crossing_mask[:-self.readout_config['coarse_tiles']['integration_length']+1]])
-                    # threshold_crossing_charge = cum_charge[threshold_crossing_mask]
-                    threshold_crossing_charge = window_charge[1:][threshold_crossing_mask][0]
-                    print (tile_center,
-                           "threshold_crossing time",
-                           threshold_crossing_z,
-                           threshold_crossing_charge,
-                           )
+    #             # threshold = 0.1 # not really the hit threshold
+    #             threshold = self.readout_config['coarse_tiles']['noise']*self.readout_config['coarse_tiles']['threshold_sigma']
+    #             # threshold_crossing_mask = np.diff(window_charge > threshold)[:-self.readout_config['coarse_tiles']['integration_length']+1]
+    #             threshold_crossing_mask = np.diff(window_charge > threshold)
+    #             # if np.any(threshold_crossing_mask[:-self.readout_config['coarse_tiles']['integration_length']+1]):
+    #             if np.any(threshold_crossing_mask[:-self.readout_config['coarse_tiles']['integration_length']+1]):
+    #                 # print (drift_bin_edges[:-1][threshold_crossing_mask[:-self.readout_config['coarse_tiles']['integration_length']+1]])
+    #                 threshold_crossing_z = drift_bin_edges[:-1][threshold_crossing_mask[:-self.readout_config['coarse_tiles']['integration_length']+1]][0]
+    #                 print (tile_center, np.arange(len(drift_bin_edges)-1)[threshold_crossing_mask[:-self.readout_config['coarse_tiles']['integration_length']+1]])
+    #                 # threshold_crossing_charge = cum_charge[threshold_crossing_mask]
+    #                 threshold_crossing_charge = window_charge[1:][threshold_crossing_mask][0]
+    #                 print (tile_center,
+    #                        "threshold_crossing time",
+    #                        threshold_crossing_z,
+    #                        threshold_crossing_charge,
+    #                        )
 
-                    cum_charge = cum_charge - threshold_crossing_charge
-                    cum_charge = np.max(np.stack([cum_charge, np.zeros_like(cum_charge)]), axis = 0) # don't subtract charge below zero
+    #                 cum_charge = cum_charge - threshold_crossing_charge
+    #                 cum_charge = np.max(np.stack([cum_charge, np.zeros_like(cum_charge)]), axis = 0) # don't subtract charge below zero
             
-                    hits.append(CoarseGridSample(tile_center,
-                                                 threshold_crossing_z,
-                                                 threshold_crossing_charge))
-                else:
-                    no_hits = True
+    #                 hits.append(CoarseGridSample(tile_center,
+    #                                              threshold_crossing_z,
+    #                                              threshold_crossing_charge))
+    #             else:
+    #                 no_hits = True
 
-        track.coarse_tiles_samples = hits
-        return hits 
+    #     track.coarse_tiles_samples = hits
+    #     return hits 
 
     def tile_hit_finding_charge_density(self, track, tile_timeseries):
         """

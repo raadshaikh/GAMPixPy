@@ -5,7 +5,7 @@ def main(args):
 
     input_parser = input_parsing.EdepSimParser(args.input_edepsim_file)
     edepsim_track = input_parser.get_edepsim_event(args.event_index)
-    # evd = plotting.EventDisplay(edepsim_track)
+    evd = plotting.EventDisplay(edepsim_track)
     # print (edepsim_track.raw_track)
 
     # evd.plot_raw_track()
@@ -31,10 +31,11 @@ def main(args):
     print (edepsim_track.coarse_tiles_samples)
     # print (edepsim_track.pixel_samples)
     # evd.plot_coarse_tile_measurement(config.default_readout_params)
+    evd.plot_coarse_tile_measurement(gampixD_readout_config)
     # evd.plot_pixel_measurement(config.default_readout_params)
     # evd.plot_raw_track()
-    # evd.plot_drifted_track()
-    # evd.show()
+    evd.plot_drifted_track()
+    evd.show()
 
     import numpy as np
     import os
