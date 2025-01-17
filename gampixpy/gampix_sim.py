@@ -3,12 +3,7 @@ from gampixpy import detector, input_parsing, plotting, config
 
 def main(args):
 
-    input_parser = input_parsing.EdepSimParser(args.input_edepsim_file)
-    edepsim_track = input_parser.get_edepsim_event(args.event_index)
-    evd = plotting.EventDisplay(edepsim_track)
-    # print (edepsim_track.raw_track)
-
-    # evd.plot_raw_track()
+    # load configs for physics, detector, and readout
 
     # detector_model = detector.DetectorModel() # default configs
     import os
@@ -18,7 +13,13 @@ def main(args):
     detector_model = detector.DetectorModel(# detector_params = DetectorConfig('gampixpy/detector_config,
                                             # physics_params = ,
                                             readout_params = gampixD_readout_config,
-                                            ) 
+                                            )
+
+    input_parser = input_parsing.EdepSimParser(args.input_edepsim_file)
+    edepsim_track = input_parser.get_edepsim_event(args.event_index)
+    evd = plotting.EventDisplay(edepsim_track)
+    # print (edepsim_track.raw_track)
+
 
     detector_model.drift(edepsim_track)
     # print (edepsim_track.drifted_track)
@@ -28,7 +29,7 @@ def main(args):
 
     detector_model.readout(edepsim_track)
     # print (edepsim_track.pixel_samples)
-    print (edepsim_track.coarse_tiles_samples)
+    # print (edepsim_track.coarse_tiles_samples)
     # print (edepsim_track.pixel_samples)
     # evd.plot_coarse_tile_measurement(config.default_readout_params)
     evd.plot_coarse_tile_measurement(gampixD_readout_config)

@@ -1,9 +1,12 @@
 from .tracks import Track
+from config import default_physics_params
 
 import numpy as np
 
 class InputParser:
-    def __init__(self, input_filename, sequential_sampling = True):
+    def __init__(self, input_filename, sequential_sampling = True, physics_config = default_physics_params):
+        self.physics_config = physics_config
+        
         self.input_filename = input_filename
 
         self.sampling_order = []
@@ -45,6 +48,62 @@ class RooTrackerParser (InputParser):
     def get_sample(self, index):
         return self.get_G4_sample(index)
 
+class QPixParser (InputParser):
+    def open_file_handle(self):
+        import ROOT
+        self.file_handle = ROOT.TFile(self.input_filename)
+
+        self.ttree = self.file_handle.Get("event_tree")
+
+    def generate_sample_order(self, sequential_sampling):
+        n_images_per_file = self.ttree.GetEntries()
+
+    def get_sample(self, index):
+        # from array import array
+        import numpy as np
+
+        # self.ttree.GetEntry(index)
+        self.number_particles = np.array([0])
+        self.hit_start_x = np.array([0])
+        N = 1
+        self.particle_pdg_code = np.array(N*[0])
+        self.particle_mass = np.array(N*[0.])
+
+        self.particle_initial_x = np.array(N*[0])
+        self.particle_initial_y = np.array(N*[0])
+        self.particle_initial_z = np.array(N*[0])
+
+        self.ttree.SetBranchAddress("number_particles", self.number_particles)
+        self.ttree.SetBranchAddress("hit_start_x", self.hit_start_x)
+        self.ttree.SetBranchAddress("particle_pdg_code", self.particle_pdg_code)
+        self.ttree.SetBranchAddress("particle_mass", self.particle_mass)
+
+        self.ttree.SetBranchAddress("particle_initial_x", self.particle_initial_x)
+        self.ttree.SetBranchAddress("particle_initial_y", self.particle_initial_y)
+        self.ttree.SetBranchAddress("particle_initial_z", self.particle_initial_z)
+
+        self.ttree.GetEntry(index)
+
+        # self.particle_charge = array('f', self.number_particles*[0.])
+        # self.hit_start_x = array('f', self.number_particles*[0.])
+        # self.particle_charge = array('f', [0.])
+        # self.hit_start_x = array('i', [0])
+
+        # self.ttree.SetBranchAddress("particle_charge", self.particle_charge)
+
+        self.ttree.GetEntry(index)
+
+        print (self.number_particles,
+               # self.particle_charge,
+               # self.hit_start_x,
+               self.particle_pdg_code,
+               self.particle_mass,
+               # self.particle_initial_x,
+               # self.particle_initial_y,
+               # self.particle_initial_z,
+               )
+        return None
+    
 class EdepSimParser (InputParser):
     def open_file_handle(self):
         import h5py
@@ -66,12 +125,41 @@ class EdepSimParser (InputParser):
         return Track(charge_points, charge_values)
 
     def do_recombination(self, segments):
-        R = 0.3
-        W_ION = 23.6e-6
+        dE = segments['dE']
+        dEdx = segments['dEdx']
+        E_field = self.physics_config['charge_drift']['drift_field']
+        LAr_density = self.physics_config['material']['density']
+
+        mode = 'box'
+        # mode = 'birks'
+        if mode == 'box':
+            box_beta = self.physics_config['box_model']['box_alpha']
+            box_alpha = self.physics_config['box_model']['box_beta']
+
+            csi = box_beta*dEdx/(E_field*LAr_density)
+            recomb = np.max(np.stack([np.zeros_like(dE),
+                                      np.log(box_alpha + csi)/csi]),
+                            axis = 0)
+
+        elif mode == 'birks':
+            birks_ab = self.physics_config['birks_model']['birks_ab']
+            birks_kb = self.physics_config['birks_model']['birks_kb']
+
+            recomb = birks_ab/(1 + birks_kb*dEdx/(E_field * LAr_density))
+
+        else:
+            raise ValueError("Invalid recombination mode: must be 'physics.BOX' or 'physics.BRIKS'")
+
+        if np.any(np.isnan(recomb)):
+            raise RuntimeError("Invalid recombination value")
+
+        print ("recombination factor", recomb)
+        W_ION = 23.6e-6 # MeV per ion pair
         # charge_yield_per_energy = 1 # just do a constant factor right now
-        charge_yield_per_energy = R/W_ION
-    
-        return segments['dE']*charge_yield_per_energy
+        charge_yield_per_energy = recomb/W_ION
+
+        n_electrons = segments['dE']*charge_yield_per_energy
+        return n_electrons
     
     def do_point_sampling(self, segments, charge_per_segment):
         # point sampling with a fixed number of samples per length

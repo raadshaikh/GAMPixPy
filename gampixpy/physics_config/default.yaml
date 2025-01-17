@@ -1,15 +1,24 @@
 material:
   name: LAr
   long_name: "Liquid Argon"
-  temperature: 110.0
-  w: 0.0220
+  temperature: 110.0 # K
+  w: 0.0236 # keV/ionization pair
+  density: 1.396 # g/ml
   recombination: 0.3000
   fano: 0.1160
   sigma_p: 0.0600
 
+box_model:
+  box_alpha: 0.93
+  box_beta: 0.207 # 0.3 (MeV/cm)^-1 * 1.383 (g/cm^3)* 0.5 (kV/cm), R. Acciarri et al JINST 8 (2013) P08005
+
+birks_model:
+  birks_ab: 0.800
+  birks_kb: 0.0486 # g/cm2/MeV Amoruso, et al NIM A 523 (2004) 275
+
 charge_drift:
   electron_lifetime: 1.0e+4 # us
-  drift_field: 5.0e3 # V/cm
+  drift_field: 0.5 # kV/cm
   diffusion_fraction: 1.0
   velocity: 0.16 # cm/us
 

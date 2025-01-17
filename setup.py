@@ -4,7 +4,8 @@ import setuptools
 
 VER = "0.1"
 
-reqs = []
+reqs = ['numpy',
+        'h5py']
 
 setuptools.setup(
     name="gampixpy",

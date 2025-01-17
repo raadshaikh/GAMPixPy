@@ -19,7 +19,6 @@ class EventDisplay:
     def plot_raw_track(self):
 
         n_points = self.track_object.raw_track['position'].shape[0]
-        print ("number of points", n_points)
         if n_points > self.MAX_POINTS_PLOTTED:
             reduction_factor = math.ceil(n_points/self.MAX_POINTS_PLOTTED)
             self.ax.scatter(self.track_object.raw_track['position'][::reduction_factor,0],
@@ -41,7 +40,6 @@ class EventDisplay:
     def plot_drifted_track(self):
 
         n_points = self.track_object.drifted_track['position'].shape[0]
-        print ("number of points", n_points)
         if n_points > self.MAX_POINTS_PLOTTED:
             reduction_factor = math.ceil(n_points/self.MAX_POINTS_PLOTTED)
             self.ax.scatter(self.track_object.drifted_track['position'][::reduction_factor,0],
@@ -63,10 +61,7 @@ class EventDisplay:
     def plot_coarse_tile_measurement(self, readout_config):
         # TODO: implement!
 
-        print (self.track_object.coarse_tiles_samples)
-
         for this_hit in self.track_object.coarse_tiles_samples:
-            print (this_hit)
             cell_center_xy = this_hit.coarse_cell_id
             cell_center_z = this_hit.coarse_measurement_time
             cell_measurement = this_hit.coarse_cell_measurement
@@ -116,10 +111,8 @@ class EventDisplay:
         self.ax.set_zlabel(r'z (drift)')
             
     def plot_pixel_measurement(self, readout_config):
-        print ("plotting pixel samples", self.track_object.pixel_samples)
-
+        
         for this_hit in self.track_object.pixel_samples:
-            print (this_hit)
             cell_center_xy = this_hit.pixel_id
             cell_center_z = this_hit.hit_timestamp
             cell_measurement = this_hit.hit_measurement

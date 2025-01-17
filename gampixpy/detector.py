@@ -50,7 +50,7 @@ class GAMPixModel:
 
         tile_centers = np.array([self.readout_config['tile_volume_edges'][i][tile_ind[:,i]] + 0.5*self.readout_config['coarse_tiles']['pitch']
                                  for i in range(2)]).T
-        print ("tile centers", tile_centers)
+        # print ("tile centers", tile_centers)
 
         z_series = track.drifted_track['position'][inside_anode_mask,2]
         charge_series = track.drifted_track['charge'][inside_anode_mask]
@@ -155,8 +155,8 @@ class GAMPixModel:
             cum_charge = np.concatenate(([0], cum_charge))
 
             # search along the bins until no more threshold crossings
-            no_hits = False
-            while not no_hits:
+            no_more_hits = False
+            while not no_more_hits:
                 # take a diff to find the amount of charge within a given window
                 # window size is (clock period)*(integration length)
                 padded_charge = np.pad(cum_charge,
@@ -173,11 +173,11 @@ class GAMPixModel:
                 if np.any(threshold_crossing_mask):
                     threshold_crossing_z = drift_bin_edges[:-1][threshold_crossing_mask][0]
                     threshold_crossing_charge = window_charge[1:-self.readout_config['coarse_tiles']['integration_length']][threshold_crossing_mask][0]
-                    print (tile_center,
-                           "threshold_crossing time",
-                           threshold_crossing_z,
-                           threshold_crossing_charge,
-                           )
+                    # print (tile_center,
+                    #        "threshold_crossing time",
+                    #        threshold_crossing_z,
+                    #        threshold_crossing_charge,
+                    #        )
 
                     cum_charge = cum_charge - threshold_crossing_charge
                     cum_charge = np.max(np.stack([cum_charge, np.zeros_like(cum_charge)]), axis = 0) # don't subtract charge below zero
@@ -186,7 +186,7 @@ class GAMPixModel:
                                                  threshold_crossing_z,
                                                  threshold_crossing_charge))
                 else:
-                    no_hits = True
+                    no_more_hits = True
 
         track.coarse_tiles_samples = hits
         return hits 
@@ -242,7 +242,7 @@ class GAMPixModel:
                 else:
                     fine_pixel_timeseries[pixel_coord] = np.array([[drift_position, charge]])
 
-        print ("found pixels", fine_pixel_timeseries)
+        # print ("found pixels", fine_pixel_timeseries)
         return fine_pixel_timeseries
 
     def pixel_hit_finding(self, track, pixel_timeseries):
@@ -267,7 +267,7 @@ class GAMPixModel:
             inst_charge, _ = np.histogram(timeseries[:,0],
                                           weights = timeseries[:,1],
                                           bins = drift_bin_edges)
-            print ("pixel charge series", inst_charge)
+            # print ("pixel charge series", inst_charge)
             # cumulative charge since last digitized sample
             cum_charge = np.cumsum(inst_charge)
             cum_charge = np.concatenate(([0], cum_charge))
@@ -290,11 +290,11 @@ class GAMPixModel:
                 if np.any(threshold_crossing_mask):
                     threshold_crossing_z = drift_bin_edges[:-1][threshold_crossing_mask][0]
                     threshold_crossing_charge = window_charge[1:-self.readout_config['pixels']['integration_length']][threshold_crossing_mask][0]
-                    print (pixel_center,
-                           "threshold_crossing time",
-                           threshold_crossing_z,
-                           threshold_crossing_charge,
-                           )
+                    # print (pixel_center,
+                    #        "threshold_crossing time",
+                    #        threshold_crossing_z,
+                    #        threshold_crossing_charge,
+                    #        )
 
                     cum_charge = cum_charge - threshold_crossing_charge
                     cum_charge = np.max(np.stack([cum_charge, np.zeros_like(cum_charge)]), axis = 0) # don't subtract charge below zero
@@ -307,7 +307,6 @@ class GAMPixModel:
 
         track.pixel_samples = hits
         return hits 
-
 
 class DetectorModel:
     def __init__(self,
@@ -327,6 +326,9 @@ class DetectorModel:
         # to the anode position as defined by detector_params
         # save the drifted positions to te track
 
+        # TODO: a more complete way to describe the anode geometry
+        # i.e., specify a plane and assume drift direction is shortest
+        # path to that plane
         anode_z = self.detector_params['anode']['z']
 
         input_position = sampled_track.raw_track['position']
