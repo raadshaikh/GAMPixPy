@@ -38,30 +38,32 @@ def main(args):
     evd.plot_drifted_track()
     evd.show()
 
-    import numpy as np
-    import os
-    coarse_charges = np.array([sample.coarse_cell_measurement
-                               for sample in edepsim_track.coarse_tiles_samples])
-    coarse_times = np.array([sample.coarse_measurement_time
-                             for sample in edepsim_track.coarse_tiles_samples])
+    # # save the timing and hit magnitude distributions (optionally)
+    # # for testing purposes
+    # import numpy as np
+    # import os
+    # coarse_charges = np.array([sample.coarse_cell_measurement
+    #                            for sample in edepsim_track.coarse_tiles_samples])
+    # coarse_times = np.array([sample.coarse_measurement_time
+    #                          for sample in edepsim_track.coarse_tiles_samples])
 
-    pixel_charges = np.array([sample.hit_measurement
-                              for sample in edepsim_track.pixel_samples])
-    pixel_times = np.array([sample.hit_timestamp
-                            for sample in edepsim_track.pixel_samples])
-    output_prefix = './'
-    np.save(os.path.join(output_prefix,
-                         'pixel_samples.npy'),
-            pixel_charges)
-    np.save(os.path.join(output_prefix,
-                          'tile_samples.npy'),
-            coarse_charges)
-    np.save(os.path.join(output_prefix,
-                         'pixel_timing.npy'),
-            pixel_times)
-    np.save(os.path.join(output_prefix,
-                          'tile_timing.npy'),
-            coarse_times)
+    # pixel_charges = np.array([sample.hit_measurement
+    #                           for sample in edepsim_track.pixel_samples])
+    # pixel_times = np.array([sample.hit_timestamp
+    #                         for sample in edepsim_track.pixel_samples])
+    # output_prefix = './'
+    # np.save(os.path.join(output_prefix,
+    #                      'pixel_samples.npy'),
+    #         pixel_charges)
+    # np.save(os.path.join(output_prefix,
+    #                       'tile_samples.npy'),
+    #         coarse_charges)
+    # np.save(os.path.join(output_prefix,
+    #                      'pixel_timing.npy'),
+    #         pixel_times)
+    # np.save(os.path.join(output_prefix,
+    #                       'tile_timing.npy'),
+    #         coarse_times)
 
 
     return
