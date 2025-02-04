@@ -105,6 +105,9 @@ class QPixParser (InputParser):
         return None
     
 class EdepSimParser (InputParser):
+    # Unit conventions for edepsim inputs:
+    # distance: 
+    # energy: MeV
     def open_file_handle(self):
         import h5py
         self.file_handle = h5py.File(self.input_filename)

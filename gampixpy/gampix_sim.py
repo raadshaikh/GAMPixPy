@@ -16,7 +16,7 @@ def main(args):
                                             )
 
     input_parser = input_parsing.EdepSimParser(args.input_edepsim_file)
-    edepsim_track = input_parser.get_edepsim_event(args.event_index)
+    edepsim_track = input_parser.get_sample(args.event_index)
     evd = plotting.EventDisplay(edepsim_track)
     # print (edepsim_track.raw_track)
 
