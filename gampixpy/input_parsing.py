@@ -16,7 +16,7 @@ class InputParser:
         
     def __iter__(self):
         for sample_index in self.sampling_order:
-            yield self.get_sample(sample_index)
+            yield sample_index, self.get_sample(sample_index)
 
 class PenelopeParser (InputParser):
     # def __init__(self, *args, **kwargs):
@@ -106,14 +106,21 @@ class QPixParser (InputParser):
     
 class EdepSimParser (InputParser):
     # Unit conventions for edepsim inputs:
-    # distance: 
+    # distance: cm
     # energy: MeV
     def open_file_handle(self):
         import h5py
         self.file_handle = h5py.File(self.input_filename)
 
     def generate_sample_order(self, sequential_sampling):
-        n_images_per_file = len(np.unique(self.file_handle['trajectories']['eventID']))
+        unique_event_ids = np.unique(self.file_handle['trajectories']['eventID'])
+        n_images_per_file = len(unique_event_ids)
+        if sequential_sampling:
+            self.sampling_order = unique_event_ids
+        else:
+            self.sampling_order = np.random.choice(unique_event_ids,
+                                                   n_images_per_file,
+                                                   replace = False)
         
     def get_edepsim_event(self, sample_index):
         segment_mask = self.file_handle['segments']['eventID'] == sample_index
@@ -156,9 +163,7 @@ class EdepSimParser (InputParser):
         if np.any(np.isnan(recomb)):
             raise RuntimeError("Invalid recombination value")
 
-        print ("recombination factor", recomb)
         W_ION = 23.6e-6 # MeV per ion pair
-        # charge_yield_per_energy = 1 # just do a constant factor right now
         charge_yield_per_energy = recomb/W_ION
 
         n_electrons = segments['dE']*charge_yield_per_energy

@@ -1,5 +1,5 @@
 import gampixpy
-from gampixpy import detector, input_parsing, plotting, config
+from gampixpy import detector, input_parsing, plotting, config, output
 
 def main(args):
 
@@ -39,7 +39,9 @@ def main(args):
     evd.show()
 
     if args.output_file:
-        edepsim_track.save(args.output_file)
+        om = output.OutputManager(args.output_file)
+        om.add_track(edepsim_track)
+    #     edepsim_track.save(args.output_file)
         
     # # save the timing and hit magnitude distributions (optionally)
     # # for testing purposes
