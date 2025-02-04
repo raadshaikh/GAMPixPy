@@ -38,6 +38,9 @@ def main(args):
     evd.plot_drifted_track()
     evd.show()
 
+    if args.output_file:
+        edepsim_track.save(args.output_file)
+        
     # # save the timing and hit magnitude distributions (optionally)
     # # for testing purposes
     # import numpy as np
@@ -79,6 +82,10 @@ if __name__ == '__main__':
                         type = int,
                         default = 5,
                         help = 'index of the event within the input file to be simulated')
+    parser.add_argument('-o', '--output_file',
+                        type = str,
+                        default = "",
+                        help = 'output hdf5 file to store coarse tile and pixel measurements')
 
     args = parser.parse_args()
 

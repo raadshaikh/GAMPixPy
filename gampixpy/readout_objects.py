@@ -1,8 +1,3 @@
-class DataObject:
-    def __init__(self, pixel_samples, coarse_grid_samples):
-        self.pixel_samples = pixel_samples
-        self.coarse_grid_samples = coarse_grid_samples
-
 class PixelSample:
     def __init__(self, pixel_id, hit_timestamp, hit_measurement):
         self.pixel_id = pixel_id
