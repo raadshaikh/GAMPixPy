@@ -170,7 +170,6 @@ class GAMPixModel:
                 else:
                     fine_pixel_timeseries[pixel_coord] = np.array([[drift_position, charge]])
 
-        # print ("found pixels", fine_pixel_timeseries)
         return fine_pixel_timeseries
 
     def pixel_hit_finding(self, track, pixel_timeseries):
@@ -265,16 +264,25 @@ class DetectorModel:
         region_charges = input_charges[region_mask]
 
         drift_distance = drift_distance[region_mask]
-        # TODO: implement better velocity model (now set as a constant in params)
-        drift_time = drift_distance/self.physics_params['charge_drift']['velocity']
 
+        # TODO: implement better velocity model (now set as a constant in params)
+        drift_time = drift_distance/self.physics_params['charge_drift']['drift_speed'] # s
         # TODO: better diffusion model
         # D accordint to https://lar.bnl.gov/properties/trans.html#diffusion-l
         # sigma = sqrt(2*D*t)
-        diffusion_sigma = np.array([self.physics_params['spatial_resolution']['sigma_transverse'],
-                                    self.physics_params['spatial_resolution']['sigma_transverse'],
-                                    self.physics_params['spatial_resolution']['sigma_longitudinal'],
-                                    ])
+        # diffusion_sigma = np.array([self.physics_params['spatial_resolution']['sigma_transverse'],
+        #                             self.physics_params['spatial_resolution']['sigma_transverse'],
+        #                             self.physics_params['spatial_resolution']['sigma_longitudinal'],
+        #                             ])
+        sigma_transverse = np.sqrt(2*self.physics_params['charge_drift']['diffusion_transverse']*drift_time)
+        sigma_longitudinal = np.sqrt(2*self.physics_params['charge_drift']['diffusion_longitudinal']*drift_time)
+        # sigma_transverse = 0
+        # sigma_longitudinal = 0
+        diffusion_sigma = np.array([sigma_transverse,
+                                    sigma_transverse,
+                                    sigma_longitudinal,
+                                    ]).T
+        
         drifted_positions = np.random.normal(loc = region_position,
                                              scale = diffusion_sigma*np.ones_like(region_position))
 

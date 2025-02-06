@@ -163,8 +163,8 @@ class EdepSimParser (InputParser):
         if np.any(np.isnan(recomb)):
             raise RuntimeError("Invalid recombination value")
 
-        W_ION = 23.6e-6 # MeV per ion pair
-        charge_yield_per_energy = recomb/W_ION
+        w_ion = self.physics_config['material']['w']
+        charge_yield_per_energy = recomb/w_ion
 
         n_electrons = segments['dE']*charge_yield_per_energy
         return n_electrons
