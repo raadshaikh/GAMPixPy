@@ -236,6 +236,7 @@ class DetectorModel:
                  readout_params = default_readout_params):
         self.detector_params = detector_params
         self.physics_params = physics_params
+        self.readout_params = readout_params
         self.readout_model = GAMPixModel(readout_params)
  
     def simulate(self, track):
@@ -250,7 +251,8 @@ class DetectorModel:
         # TODO: a more complete way to describe the anode geometry
         # i.e., specify a plane and assume drift direction is shortest
         # path to that plane
-        anode_z = self.detector_params['anode']['z']
+        # anode_z = self.detector_params['anode']['z']
+        anode_z = self.readout_params['anode']['z_range'][0]
 
         input_position = sampled_track.raw_track['position']
         input_charges = sampled_track.raw_track['charge']

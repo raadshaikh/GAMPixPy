@@ -4,21 +4,33 @@ import numpy as np
 from readout_objects import coarse_tile_dtype, pixel_dtype
 
 class OutputManager:
-    def __init__(self, output_filename):
+    def __init__(self, output_filename, mode = 'w'):
         self.output_filename = output_filename
 
-        self.outfile = h5py.File(output_filename, 'w')
+        self.outfile = h5py.File(output_filename, mode)
 
-        self.outfile.create_dataset('coarse_hits',
-                                    shape = (0,),
-                                    dtype = coarse_tile_dtype,
-                                    maxshape = (None,))
-        self.outfile.create_dataset('pixel_hits',
-                                    shape = (0,),
-                                    dtype = pixel_dtype,
-                                    maxshape = (None,))
+        if mode == 'w':
+            self.outfile.create_dataset('coarse_hits',
+                                        shape = (0,),
+                                        dtype = coarse_tile_dtype,
+                                        maxshape = (None,))
+            self.outfile.create_dataset('pixel_hits',
+                                        shape = (0,),
+                                        dtype = pixel_dtype,
+                                        maxshape = (None,))
+            self.n_tracks = 0 # track how many tracks have been written so far
 
-        self.n_tracks = 0 # track how many tracks have been written so far
+        elif mode == 'r':
+            self.outfile.create_dataset('coarse_hits',
+                                        shape = (0,),
+                                        dtype = coarse_tile_dtype,
+                                        maxshape = (None,))
+            self.outfile.create_dataset('pixel_hits',
+                                        shape = (0,),
+                                        dtype = pixel_dtype,
+                                        maxshape = (None,))
+            self.n_tracks = 0 # track how many tracks have been written so far
+
 
     def add_track(self, track, event_id = None):
         coarse_tile_sample_array, pixel_sample_array = track.to_array()

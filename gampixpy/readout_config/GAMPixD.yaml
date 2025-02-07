@@ -1,7 +1,7 @@
 anode:
   x_range: [-10000, 10000]
   y_range: [-10000, 10000]
-  z_range: [-1000, 1000]
+  z_range: [0, 1000]
 
 coarse_tiles:
   type: coarse_tiles
@@ -16,9 +16,9 @@ coarse_tiles:
 
 pixels:
   type: pixels
-  pitch: 0.5
+  pitch: 0.1
   power_per_pixel: 1.e-3
-  noise: 50
+  noise: 30
   threshold_sigma: 4.0
-  z_bin_width: 5
+  z_bin_width: 0.1
   integration_length: 1

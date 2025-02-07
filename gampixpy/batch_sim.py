@@ -18,9 +18,10 @@ def main(args):
 
     input_parser = input_parsing.EdepSimParser(args.input_edepsim_file)
     for event_index, edepsim_track in tqdm.tqdm(input_parser):
-        detector_model.drift(edepsim_track)
-        detector_model.readout(edepsim_track)
-
+        detector_model.simulate(edepsim_track)
+        print ("found", len(edepsim_track.coarse_tiles_samples), "coarse tile hits")
+        print ("found", len(edepsim_track.pixel_samples), "pixel hits")
+        
         if args.output_file:
             output_manager.add_track(edepsim_track)
 
