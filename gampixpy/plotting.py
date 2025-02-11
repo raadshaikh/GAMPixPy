@@ -155,7 +155,13 @@ class EventDisplay:
             #                 this_hit.coarse_measurement_time,
             #                 c = this_hit.coarse_cell_measurement,
             #                 )
-            self.ax.add_collection3d(Poly3DCollection(faces, facecolors = 'orange', linewidths=1, edgecolors = 'k', alpha = 0.25))
+            print (this_hit.hit_measurement)
+            self.ax.add_collection3d(Poly3DCollection(faces,
+                                                      facecolors = 'orange',
+                                                      # facecolors = [np.log10(this_hit.hit_measurement)/10, 0, 0],
+                                                      linewidths=1,
+                                                      edgecolors = 'k',
+                                                      alpha = 0.25))
             
         self.ax.set_xlabel(r'x (transverse)')
         self.ax.set_ylabel(r'y (transverse)')

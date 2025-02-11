@@ -7,19 +7,33 @@ def main(args):
 
     # detector_model = detector.DetectorModel() # default configs
     import os
-    gampixD_readout_config = config.ReadoutConfig(os.path.join(gampixpy.__path__[0],
-                                                               'readout_config',
-                                                               'GAMPixD.yaml'))
-    detector_model = detector.DetectorModel(# detector_params = DetectorConfig('gampixpy/detector_config,
-                                            # physics_params = ,
-                                            readout_params = gampixD_readout_config,
+    # gampixD_readout_config = config.ReadoutConfig(os.path.join(gampixpy.__path__[0],
+    #                                                            'readout_config',
+    #                                                            # 'GAMPixD.yaml'))
+    #                                                            'chunky_example.yaml'))
+    if args.detector_config == "":
+        detector_config = config.default_detector_params
+    else:
+        detector_config = config.DetectorConfig(args.detector_config)
+
+    if args.physics_config == "":
+        physics_config = config.default_physics_params
+    else:
+        physics_config = config.PhysicsConfig(args.physics_config)
+
+    if args.readout_config == "":
+        readout_config = config.default_readout_params
+    else:
+        readout_config = config.ReadoutConfig(args.readout_config)
+    detector_model = detector.DetectorModel(detector_params = detector_config,
+                                            physics_params = physics_config,
+                                            readout_params = readout_config,
                                             )
 
     input_parser = input_parsing.EdepSimParser(args.input_edepsim_file)
     edepsim_track = input_parser.get_sample(args.event_index)
     evd = plotting.EventDisplay(edepsim_track)
     # print (edepsim_track.raw_track)
-
 
     detector_model.drift(edepsim_track)
     # print (edepsim_track.drifted_track)
@@ -28,48 +42,15 @@ def main(args):
     # evd.plot_drifted_track()
 
     detector_model.readout(edepsim_track)
-    # print (edepsim_track.pixel_samples)
-    # print (edepsim_track.coarse_tiles_samples)
-    # print (edepsim_track.pixel_samples)
-    # evd.plot_coarse_tile_measurement(config.default_readout_params)
-    evd.plot_coarse_tile_measurement(gampixD_readout_config)
-    # evd.plot_pixel_measurement(config.default_readout_params)
-    # evd.plot_raw_track()
     evd.plot_drifted_track()
+    # evd.plot_coarse_tile_measurement(gampixD_readout_config)
+    evd.plot_pixel_measurement(readout_config)
+    # evd.plot_raw_track()
     evd.show()
 
     if args.output_file:
         om = output.OutputManager(args.output_file)
         om.add_track(edepsim_track)
-    #     edepsim_track.save(args.output_file)
-        
-    # # save the timing and hit magnitude distributions (optionally)
-    # # for testing purposes
-    # import numpy as np
-    # import os
-    # coarse_charges = np.array([sample.coarse_cell_measurement
-    #                            for sample in edepsim_track.coarse_tiles_samples])
-    # coarse_times = np.array([sample.coarse_measurement_time
-    #                          for sample in edepsim_track.coarse_tiles_samples])
-
-    # pixel_charges = np.array([sample.hit_measurement
-    #                           for sample in edepsim_track.pixel_samples])
-    # pixel_times = np.array([sample.hit_timestamp
-    #                         for sample in edepsim_track.pixel_samples])
-    # output_prefix = './'
-    # np.save(os.path.join(output_prefix,
-    #                      'pixel_samples.npy'),
-    #         pixel_charges)
-    # np.save(os.path.join(output_prefix,
-    #                       'tile_samples.npy'),
-    #         coarse_charges)
-    # np.save(os.path.join(output_prefix,
-    #                      'pixel_timing.npy'),
-    #         pixel_times)
-    # np.save(os.path.join(output_prefix,
-    #                       'tile_timing.npy'),
-    #         coarse_times)
-
 
     return
 
@@ -88,6 +69,19 @@ if __name__ == '__main__':
                         type = str,
                         default = "",
                         help = 'output hdf5 file to store coarse tile and pixel measurements')
+
+    parser.add_argument('-d', '--detector_config',
+                        type = str,
+                        default = "",
+                        help = 'detector configuration yaml')
+    parser.add_argument('-p', '--physics_config',
+                        type = str,
+                        default = "",
+                        help = 'physics configuration yaml')
+    parser.add_argument('-r', '--readout_config',
+                        type = str,
+                        default = "",
+                        help = 'readout configuration yaml')
 
     args = parser.parse_args()
 
