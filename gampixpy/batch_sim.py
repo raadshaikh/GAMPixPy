@@ -30,13 +30,13 @@ def main(args):
         output_manager = output.OutputManager(args.output_file)
 
     input_parser = input_parsing.EdepSimParser(args.input_edepsim_file)
-    for event_index, edepsim_track in tqdm.tqdm(input_parser):
+    for event_index, edepsim_track, event_meta in tqdm.tqdm(input_parser):
         detector_model.simulate(edepsim_track)
         print ("found", len(edepsim_track.coarse_tiles_samples), "coarse tile hits")
         print ("found", len(edepsim_track.pixel_samples), "pixel hits")
         
         if args.output_file:
-            output_manager.add_track(edepsim_track)
+            output_manager.add_entry(edepsim_track, event_meta)
 
     return
 

@@ -1,7 +1,13 @@
-from .tracks import Track
+from gampixpy.tracks import Track
 from config import default_physics_params
 
 import numpy as np
+import particle
+
+meta_dtype =  np.dtype([("event id", "u4"),
+                        ("primary energy", "f4"),
+                        ],
+                       align = True)
 
 class InputParser:
     def __init__(self, input_filename, sequential_sampling = True, physics_config = default_physics_params):
@@ -16,7 +22,7 @@ class InputParser:
         
     def __iter__(self):
         for sample_index in self.sampling_order:
-            yield sample_index, self.get_sample(sample_index)
+            yield sample_index, self.get_sample(sample_index), self.get_meta(sample_index)
 
 class PenelopeParser (InputParser):
     # def __init__(self, *args, **kwargs):
@@ -39,6 +45,9 @@ class PenelopeParser (InputParser):
 
     def get_sample(self, index):
         return self.get_penelope_sample(index)
+    
+    def get_meta(self, index):
+        return None
 
 class RooTrackerParser (InputParser):
     def get_G4_sample(self, sample_index):
@@ -103,6 +112,10 @@ class QPixParser (InputParser):
                # self.particle_initial_z,
                )
         return None
+
+    def get_meta(self, index):
+        return None
+
     
 class EdepSimParser (InputParser):
     # Unit conventions for edepsim inputs:
@@ -133,7 +146,25 @@ class EdepSimParser (InputParser):
         charge_points, charge_values = self.do_point_sampling(event_segments, charge_per_segment)
         
         return Track(charge_points, charge_values)
+    
+    def get_edepsim_meta(self, sample_index):
+        trajectory_mask = self.file_handle['trajectories']['eventID'] == sample_index
+        event_trajectories = self.file_handle['trajectories'][trajectory_mask]
+        primary_trajectory = event_trajectories[event_trajectories['parentID'] == -1]
+        print ("primary", primary_trajectory, primary_trajectory.dtype)
 
+        pdg_code = primary_trajectory['pdgId']
+        mass = particle.Particle.from_pdgid(pdg_code).mass # MeV/c^2
+        momentum = primary_trajectory['pxyz_start'] # MeV/c
+        kinetic_energy = np.sqrt(np.power(mass, 2) + np.sum(np.power(momentum, 2))) - mass
+
+        meta_array = np.array([(sample_index,
+                                kinetic_energy)],
+                              dtype = meta_dtype)
+        print ("meta array", meta_array)
+        
+        return meta_array
+        
     def do_recombination(self, segments):
         dE = segments['dE']
         dEdx = segments['dEdx']
@@ -197,6 +228,10 @@ class EdepSimParser (InputParser):
 
     def get_sample(self, index):
         return self.get_edepsim_event(index)
+
+    def get_meta(self, index):
+        return self.get_edepsim_meta(index)
+
 
 class MarleyParser (InputParser):
     # Unit conventions for Marley inputs:
@@ -228,6 +263,15 @@ class MarleyParser (InputParser):
         
         return Track(charge_points, charge_values)
 
+    def get_edepsim_meta(self, sample_index):
+        trajectory_mask = self.file_handle['trajectories']['eventID'] == sample_index
+        event_trajectories = self.file_handle['trajectories'][trajectory_mask]
+        primary_trajectory = event_trajectories[event_trajectories['parentID'] == -1]
+        print ("primary", primary_trajectory)
+        
+        return None
+        # return Track(charge_points, charge_values)
+
     def do_recombination(self, segments):
         dE = segments['dE']
         dEdx = segments['dEdx']
@@ -291,3 +335,7 @@ class MarleyParser (InputParser):
 
     def get_sample(self, index):
         return self.get_edepsim_event(index)
+
+    def get_meta(self, index):
+        print ("calling get_meta method")
+        return self.get_edepsim_meta(index)

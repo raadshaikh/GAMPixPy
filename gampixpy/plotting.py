@@ -62,7 +62,7 @@ class EventDisplay:
         # TODO: implement!
 
         for this_hit in self.track_object.coarse_tiles_samples:
-            cell_center_xy = this_hit.coarse_cell_id
+            cell_center_xy = this_hit.coarse_cell_pos
             cell_center_z = this_hit.coarse_measurement_time
             cell_measurement = this_hit.coarse_cell_measurement
 
@@ -113,7 +113,7 @@ class EventDisplay:
     def plot_pixel_measurement(self, readout_config):
         
         for this_hit in self.track_object.pixel_samples:
-            cell_center_xy = this_hit.pixel_id
+            cell_center_xy = this_hit.pixel_pos
             cell_center_z = this_hit.hit_timestamp
             cell_measurement = this_hit.hit_measurement
 
@@ -150,12 +150,6 @@ class EventDisplay:
                      back_face,
                      front_face,
                      ]
-            # self.ax.scatter(this_hit.coarse_cell_id[0],
-            #                 this_hit.coarse_cell_id[1],
-            #                 this_hit.coarse_measurement_time,
-            #                 c = this_hit.coarse_cell_measurement,
-            #                 )
-            print (this_hit.hit_measurement)
             self.ax.add_collection3d(Poly3DCollection(faces,
                                                       facecolors = 'orange',
                                                       # facecolors = [np.log10(this_hit.hit_measurement)/10, 0, 0],

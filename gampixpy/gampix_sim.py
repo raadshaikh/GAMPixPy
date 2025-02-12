@@ -27,6 +27,9 @@ def main(args):
 
     input_parser = input_parsing.EdepSimParser(args.input_edepsim_file)
     edepsim_track = input_parser.get_sample(args.event_index)
+    print ("calling get_meta")
+    edepsim_event_meta = input_parser.get_meta(args.event_index)
+    print ("post call get_meta")
     evd = plotting.EventDisplay(edepsim_track)
     # print (edepsim_track.raw_track)
 
@@ -45,7 +48,8 @@ def main(args):
 
     if args.output_file:
         om = output.OutputManager(args.output_file)
-        om.add_track(edepsim_track)
+        om.add_entry(edepsim_track, edepsim_event_meta)
+        # om.add_track(edepsim_track)
 
     return
 

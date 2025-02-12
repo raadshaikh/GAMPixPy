@@ -14,15 +14,15 @@ class Track:
 
     def to_array(self):
         coarse_tile_sample_array = np.array([(0,
-                                              hit.coarse_cell_id[0],
-                                              hit.coarse_cell_id[1],
+                                              hit.coarse_cell_pos[0],
+                                              hit.coarse_cell_pos[1],
                                               hit.coarse_measurement_time,
                                               hit.coarse_cell_measurement)
                                              for hit in self.coarse_tiles_samples],
                                             dtype = coarse_tile_dtype)
         pixel_sample_array = np.array([(0,
-                                        hit.pixel_id[0],
-                                        hit.pixel_id[1],
+                                        hit.pixel_pos[0],
+                                        hit.pixel_pos[1],
                                         hit.hit_timestamp,
                                         hit.hit_measurement)
                                        for hit in self.pixel_samples],

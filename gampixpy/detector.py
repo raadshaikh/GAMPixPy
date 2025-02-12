@@ -126,7 +126,7 @@ class GAMPixModel:
         
         for this_coarse_hit in coarse_tile_hits:
 
-            cell_center_xy = this_coarse_hit.coarse_cell_id # may change
+            cell_center_xy = this_coarse_hit.coarse_cell_pos # may change
             cell_edge_z = this_coarse_hit.coarse_measurement_time
             
             x_bounds = [cell_center_xy[0] - 0.5*self.readout_config['coarse_tiles']['pitch'],
