@@ -5,12 +5,6 @@ def main(args):
 
     # load configs for physics, detector, and readout
 
-    # detector_model = detector.DetectorModel() # default configs
-    import os
-    # gampixD_readout_config = config.ReadoutConfig(os.path.join(gampixpy.__path__[0],
-    #                                                            'readout_config',
-    #                                                            # 'GAMPixD.yaml'))
-    #                                                            'chunky_example.yaml'))
     if args.detector_config == "":
         detector_config = config.default_detector_params
     else:
@@ -25,6 +19,7 @@ def main(args):
         readout_config = config.default_readout_params
     else:
         readout_config = config.ReadoutConfig(args.readout_config)
+
     detector_model = detector.DetectorModel(detector_params = detector_config,
                                             physics_params = physics_config,
                                             readout_params = readout_config,
