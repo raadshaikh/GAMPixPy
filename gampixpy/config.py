@@ -49,18 +49,18 @@ class PhysicsConfig (Config):
         E = self['charge_drift']['drift_field'] # kV/cm
         T = self['material']['temperature'] # K
         
-        numerator = a0 + a1*E + a2*np.pow(E, 3./2) + a3*np.pow(E, 5./2)
-        denominator = 1 + (a1/a0)*E + a4*np.pow(E, 2) + a5*np.pow(E, 3)
-        mu = numerator*np.pow(T/T0, -3./2)/denominator # cm^2/V/s
+        numerator = a0 + a1*E + a2*np.power(E, 3./2) + a3*np.power(E, 5./2)
+        denominator = 1 + (a1/a0)*E + a4*np.power(E, 2) + a5*np.power(E, 3)
+        mu = numerator*np.power(T/T0, -3./2)/denominator # cm^2/V/s
         # mu *= 10*10 # mm^2/V/s
         # mu /= 1.e9 # mm^2/V/ns
         
-        dMudE = ((a1 + 3./2*a2*np.pow(E, 1./2) + 5./2*a3*np.pow(E, 3./2))*denominator - numerator*(a1/a0 + 2*a4*E + 3*a5*np.pow(E, 2)))*np.pow(T/T0, -3./2)/np.pow(denominator, 2) # cm^3/V/kV/s
+        dMudE = ((a1 + 3./2*a2*np.power(E, 1./2) + 5./2*a3*np.power(E, 3./2))*denominator - numerator*(a1/a0 + 2*a4*E + 3*a5*np.power(E, 2)))*np.power(T/T0, -3./2)/np.power(denominator, 2) # cm^3/V/kV/s
         dMudE /= 1000.
         # dMudE *= 10*10*10 # mm^3/V^2/s
         # dMudE /= 1.e9 # mm^3/V^2/ns
 
-        e = (b0 + b1*E + b2*np.pow(E, 2))*(T/T1)/(1 + (b1/b0)*E + b3*np.pow(E, 2)) # eV
+        e = (b0 + b1*E + b2*np.power(E, 2))*(T/T1)/(1 + (b1/b0)*E + b3*np.power(E, 2)) # eV
         e /= 1.e6 # MeV
 
         R = 1 + E/mu*dMudE*1000 # diffusion ratio
