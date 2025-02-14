@@ -51,8 +51,8 @@ def tile_coords_to_indices(tile_coords_tensor, readout_config):
                             ])
 
     tile_index_tensor = ((tile_coords_tensor - min_voxel[:,None])//spacing[:,None]).long()
-    tile_index_tensor -= torch.min(tile_index_tensor, dim = 1).values[:,None]
-    print (tile_index_tensor)
+    if torch.any(tile_index_tensor):
+        tile_index_tensor -= torch.min(tile_index_tensor, dim = 1).values[:,None]
 
     plot_coord_tensor(tile_index_tensor)
     
@@ -70,7 +70,6 @@ def pixel_coords_to_indices(pixel_coords_tensor, readout_config):
 
     pixel_index_tensor = ((pixel_coords_tensor - min_voxel[:,None])//spacing[:,None]).long()
     pixel_index_tensor -= torch.min(pixel_index_tensor, dim = 1).values[:,None]
-    print (pixel_index_tensor)
 
     plot_coord_tensor(pixel_index_tensor)
     
@@ -78,8 +77,7 @@ def pixel_coords_to_indices(pixel_coords_tensor, readout_config):
 
 def tensor_to_sparsetensor(coords, feats):
     st = torch.sparse_coo_tensor(coords, feats.T)
-    print (st)
-
+    
     return st
 
 def get_event_hits(readout_data, event_id):
@@ -105,6 +103,27 @@ def make_event_sparsetensors(readout_data, event_id, readout_config = config.def
     pixel_st = tensor_to_sparsetensor(pixel_index_tensor, pixel_charge_tensor)
 
     return tile_st, pixel_st
+
+def get_event_coo_tensors(readout_data, event_id, readout_config = config.default_readout_params):
+    event_tile_hits, event_pixel_hits = get_event_hits(readout_data, event_id)
+
+    tile_coords_tensor, tile_charge_tensor = tiles_to_tensor(event_tile_hits)
+    tile_index_tensor = tile_coords_to_indices(tile_coords_tensor, readout_config)
+
+    # tile_st = tensor_to_sparsetensor(tile_index_tensor, tile_charge_tensor)
+
+    pixel_coords_tensor, pixel_charge_tensor = pixels_to_tensor(event_pixel_hits)
+    pixel_index_tensor = pixel_coords_to_indices(pixel_coords_tensor, readout_config)
+
+    # pixel_st = tensor_to_sparsetensor(pixel_index_tensor, pixel_charge_tensor)
+
+    return (tile_index_tensor, tile_charge_tensor), (pixel_index_tensor, pixel_charge_tensor)
+
+def get_event_meta(readout_data, event_id):
+    event_meta_mask = readout_data['meta']['event id'] == event_id
+    event_meta = readout_data['meta'][event_meta_mask]
+
+    return event_meta
 
 def main(args):
     gampixD_readout_config = config.ReadoutConfig(os.path.join(gampixpy.__path__[0],
