@@ -50,7 +50,9 @@ def tile_coords_to_indices(tile_coords_tensor, readout_config):
                             readout_config['coarse_tiles']['z_bin_width'],
                             ])
 
-    tile_index_tensor = ((tile_coords_tensor - min_voxel[:,None])//spacing[:,None]).long()
+    tile_index_tensor = (torch.div(tile_coords_tensor - min_voxel[:,None],
+                                   spacing[:,None],
+                                   rounding_mode = 'trunc').long()
     if torch.any(tile_index_tensor):
         tile_index_tensor -= torch.min(tile_index_tensor, dim = 1).values[:,None]
 
@@ -68,8 +70,11 @@ def pixel_coords_to_indices(pixel_coords_tensor, readout_config):
                             readout_config['pixels']['z_bin_width'],
                             ])
 
-    pixel_index_tensor = ((pixel_coords_tensor - min_voxel[:,None])//spacing[:,None]).long()
-    pixel_index_tensor -= torch.min(pixel_index_tensor, dim = 1).values[:,None]
+    pixel_index_tensor = (torch.div(pixel_coords_tensor - min_voxel[:,None],
+                                    spacing[:,None],
+                                    rounding_mode = 'trunc').long()
+    if torch.any(pixel_index_tensor):
+        pixel_index_tensor -= torch.min(pixel_index_tensor, dim = 1).values[:,None]
 
     plot_coord_tensor(pixel_index_tensor)
     
@@ -108,12 +113,12 @@ def get_event_coo_tensors(readout_data, event_id, readout_config = config.defaul
     event_tile_hits, event_pixel_hits = get_event_hits(readout_data, event_id)
 
     tile_coords_tensor, tile_charge_tensor = tiles_to_tensor(event_tile_hits)
-    tile_index_tensor = tile_coords_to_indices(tile_coords_tensor, readout_config)
+    tile_index_tensor = tile_coords_to_indices(tile_coords_tensor, readout_config).T
 
     # tile_st = tensor_to_sparsetensor(tile_index_tensor, tile_charge_tensor)
 
     pixel_coords_tensor, pixel_charge_tensor = pixels_to_tensor(event_pixel_hits)
-    pixel_index_tensor = pixel_coords_to_indices(pixel_coords_tensor, readout_config)
+    pixel_index_tensor = pixel_coords_to_indices(pixel_coords_tensor, readout_config).T
 
     # pixel_st = tensor_to_sparsetensor(pixel_index_tensor, pixel_charge_tensor)
 
