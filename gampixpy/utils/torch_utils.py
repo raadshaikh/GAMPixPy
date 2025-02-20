@@ -9,22 +9,20 @@ import gampixpy
 from gampixpy import config
 
 def tiles_to_tensor(tile_hits):
-    tile_coords = torch.tensor([tile_hits['tile x'],
-                                tile_hits['tile y'],
-                                tile_hits['hit z'],
-                                ])
-    tile_feats = torch.tensor([tile_hits['hit charge'],
-                               ])
+    tile_coords = torch.tensor(np.array([tile_hits['tile x'],
+                                         tile_hits['tile y'],
+                                         tile_hits['hit z']]))
+    tile_feats = torch.tensor(np.array([tile_hits['hit charge'],
+                                        ]))
 
     return tile_coords, tile_feats
 
 def pixels_to_tensor(pixel_hits):
-    pixel_coords = torch.tensor([pixel_hits['pixel x'],
-                                 pixel_hits['pixel y'],
-                                 pixel_hits['hit z'],
-                                 ])
-    pixel_feats = torch.tensor([pixel_hits['hit charge'],
-                                ])
+    pixel_coords = torch.tensor(np.array([pixel_hits['pixel x'],
+                                          pixel_hits['pixel y'],
+                                          pixel_hits['hit z']]))
+    pixel_feats = torch.tensor(np.array([pixel_hits['hit charge'],
+                                         ]))
     
     return pixel_coords, pixel_feats
 
@@ -40,44 +38,64 @@ def plot_coord_tensor(pixel_index_tensor):
     ax.set_zlabel(r'z')
     plt.show()
 
-def tile_coords_to_indices(tile_coords_tensor, readout_config):
-    min_voxel = np.array([readout_config['anode']['x_range'][0],
-                          readout_config['anode']['y_range'][0],
-                          readout_config['anode']['z_range'][0],
-                         ])
+def tile_coords_to_indices(tile_coords_tensor, readout_config, origin = 'edge'):
     spacing = torch.tensor([readout_config['coarse_tiles']['pitch'],
                             readout_config['coarse_tiles']['pitch'],
                             readout_config['coarse_tiles']['z_bin_width'],
                             ])
 
-    tile_index_tensor = (torch.div(tile_coords_tensor - min_voxel[:,None],
-                                   spacing[:,None],
-                                   rounding_mode = 'trunc').long()
-    if torch.any(tile_index_tensor):
-        tile_index_tensor -= torch.min(tile_index_tensor, dim = 1).values[:,None]
-
-    plot_coord_tensor(tile_index_tensor)
+    if origin == 'edge': # this mode sets the lowest-value coordinate in each direction to 0
+        min_voxel = np.array([readout_config['anode']['x_range'][0],
+                              readout_config['anode']['y_range'][0],
+                              readout_config['anode']['z_range'][0],
+                              ])
+        tile_index_tensor = torch.div(tile_coords_tensor - min_voxel[:,None],
+                                      spacing[:,None],
+                                      rounding_mode = 'trunc').long()
+        if torch.any(tile_index_tensor):
+            tile_index_tensor -= torch.min(tile_index_tensor, dim = 1).values[:,None]
+            
+    elif origin == 'coordinate': # this mode sets the voxel closest to the origin in coordinate space to (0,0,0)
+        tile_index_tensor = torch.div(tile_coords_tensor,
+                                      spacing[:,None],
+                                      rounding_mode = 'trunc').long()
+        if torch.any(tile_index_tensor):
+            drift_zero = torch.min(tile_index_tensor, dim = 1).values[2,None]
+            origin = torch.tensor([[0, 0, drift_zero]]).T
+            tile_index_tensor -= origin
     
     return tile_index_tensor
 
-def pixel_coords_to_indices(pixel_coords_tensor, readout_config):
-    min_voxel = np.array([readout_config['anode']['x_range'][0],
-                          readout_config['anode']['y_range'][0],
-                          readout_config['anode']['z_range'][0],
-                         ])
+def pixel_coords_to_indices(pixel_coords_tensor, readout_config, origin = 'edge'):
     spacing = torch.tensor([readout_config['pixels']['pitch'],
                             readout_config['pixels']['pitch'],
                             readout_config['pixels']['z_bin_width'],
                             ])
 
-    pixel_index_tensor = (torch.div(pixel_coords_tensor - min_voxel[:,None],
-                                    spacing[:,None],
-                                    rounding_mode = 'trunc').long()
-    if torch.any(pixel_index_tensor):
-        pixel_index_tensor -= torch.min(pixel_index_tensor, dim = 1).values[:,None]
+    # valid options for setting the origin:
+    #   'edge'
+    #   'coordinate'
+    # ...more to come?
+    if origin == 'edge': # this mode sets the lowest-value coordinate in each direction to 0
+        min_voxel = np.array([readout_config['anode']['x_range'][0],
+                              readout_config['anode']['y_range'][0],
+                              readout_config['anode']['z_range'][0],
+                              ])
 
-    plot_coord_tensor(pixel_index_tensor)
-    
+        pixel_index_tensor = torch.div(pixel_coords_tensor - min_voxel[:,None],
+                                       spacing[:,None],
+                                       rounding_mode = 'trunc').long()
+        if torch.any(pixel_index_tensor):
+            pixel_index_tensor -= torch.min(pixel_index_tensor, dim = 1).values[:,None]
+    if origin == 'coordinate': # this mode sets the voxel closest to the origin in coordinate space to (0,0,0)
+        pixel_index_tensor = torch.div(pixel_coords_tensor,
+                                       spacing[:,None],
+                                       rounding_mode = 'trunc').long()
+        if torch.any(pixel_index_tensor):
+            drift_zero = torch.min(pixel_index_tensor, dim = 1).values[2,None]
+            origin = torch.tensor([[0, 0, drift_zero]]).T
+            pixel_index_tensor -= origin
+        
     return pixel_index_tensor
 
 def tensor_to_sparsetensor(coords, feats):
@@ -94,31 +112,31 @@ def get_event_hits(readout_data, event_id):
 
     return event_coarse_hits, event_pixel_hits
 
-def make_event_sparsetensors(readout_data, event_id, readout_config = config.default_readout_params):
+def make_event_sparsetensors(readout_data, event_id, readout_config = config.default_readout_params, **kwargs):
     event_tile_hits, event_pixel_hits = get_event_hits(readout_data, event_id)
 
     tile_coords_tensor, tile_charge_tensor = tiles_to_tensor(event_tile_hits)
-    tile_index_tensor = tile_coords_to_indices(tile_coords_tensor, readout_config)
+    tile_index_tensor = tile_coords_to_indices(tile_coords_tensor, readout_config, **kwargs)
 
     tile_st = tensor_to_sparsetensor(tile_index_tensor, tile_charge_tensor)
 
     pixel_coords_tensor, pixel_charge_tensor = pixels_to_tensor(event_pixel_hits)
-    pixel_index_tensor = pixel_coords_to_indices(pixel_coords_tensor, readout_config)
+    pixel_index_tensor = pixel_coords_to_indices(pixel_coords_tensor, readout_config, **kwargs)
 
     pixel_st = tensor_to_sparsetensor(pixel_index_tensor, pixel_charge_tensor)
 
     return tile_st, pixel_st
 
-def get_event_coo_tensors(readout_data, event_id, readout_config = config.default_readout_params):
+def get_event_coo_tensors(readout_data, event_id, readout_config = config.default_readout_params, **kwargs):
     event_tile_hits, event_pixel_hits = get_event_hits(readout_data, event_id)
 
     tile_coords_tensor, tile_charge_tensor = tiles_to_tensor(event_tile_hits)
-    tile_index_tensor = tile_coords_to_indices(tile_coords_tensor, readout_config).T
+    tile_index_tensor = tile_coords_to_indices(tile_coords_tensor, readout_config, **kwargs).T
 
     # tile_st = tensor_to_sparsetensor(tile_index_tensor, tile_charge_tensor)
 
     pixel_coords_tensor, pixel_charge_tensor = pixels_to_tensor(event_pixel_hits)
-    pixel_index_tensor = pixel_coords_to_indices(pixel_coords_tensor, readout_config).T
+    pixel_index_tensor = pixel_coords_to_indices(pixel_coords_tensor, readout_config, **kwargs).T
 
     # pixel_st = tensor_to_sparsetensor(pixel_index_tensor, pixel_charge_tensor)
 

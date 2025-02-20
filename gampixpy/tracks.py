@@ -1,6 +1,6 @@
 import numpy as np
 
-from readout_objects import coarse_tile_dtype, pixel_dtype
+from gampixpy.readout_objects import coarse_tile_dtype, pixel_dtype
 
 class Track:
     def __init__(self, sample_positions, sample_charges):

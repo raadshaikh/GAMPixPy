@@ -1,5 +1,5 @@
-from config import default_detector_params, default_physics_params, default_readout_params
-from readout_objects import PixelSample, CoarseGridSample
+from gampixpy.config import default_detector_params, default_physics_params, default_readout_params
+from gampixpy.readout_objects import PixelSample, CoarseGridSample
 
 import numpy as np
 
