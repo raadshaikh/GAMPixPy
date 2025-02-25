@@ -10,6 +10,9 @@ meta_dtype =  np.dtype([("event id", "u4"),
                         ("vertex x", "f4"),
                         ("vertex y", "f4"),
                         ("vertex z", "f4"),
+                        ("theta", "f4"),
+                        ("phi", "f4"),
+                        ("primary length", "f4"),
                         ],
                        align = True)
 
@@ -120,7 +123,6 @@ class QPixParser (InputParser):
     def get_meta(self, index):
         return None
 
-    
 class EdepSimParser (InputParser):
     # Unit conventions for edepsim inputs:
     # distance: cm
@@ -167,6 +169,7 @@ class EdepSimParser (InputParser):
                                 kinetic_energy,
                                 0,
                                 vertex[0], vertex[1], vertex[2],
+                                0, 0, 0,
                                 )],
                               dtype = meta_dtype)
         return meta_array
@@ -239,7 +242,6 @@ class EdepSimParser (InputParser):
     def get_meta(self, index):
         print ("meta", self.get_edepsim_meta(index))
         return self.get_edepsim_meta(index)
-
 
 class MarleyParser (InputParser):
     # Unit conventions for Marley inputs:
