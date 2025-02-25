@@ -164,12 +164,17 @@ class EdepSimParser (InputParser):
         kinetic_energy = np.sqrt(np.power(mass, 2) + np.sum(np.power(momentum, 2))) - mass
 
         vertex = primary_trajectory['xyz_start'][0]
+        init_momentum = primary_trajectory['pxyz_start'][0]
+
+        theta = np.arctan2(init_momentum[1], init_momentum[0])
+        phi = np.arctan2(np.sqrt(init_momentum[0]**2 + init_momentum[1]**2), init_momentum[2])
         
         meta_array = np.array([(sample_index,
                                 kinetic_energy,
-                                0,
+                                -1, # charge undefined
                                 vertex[0], vertex[1], vertex[2],
-                                0, 0, 0,
+                                theta, phi,
+                                -1, # primary length undefined
                                 )],
                               dtype = meta_dtype)
         return meta_array
