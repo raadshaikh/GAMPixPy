@@ -31,97 +31,171 @@ class InputParser:
         for sample_index in self.sampling_order:
             yield sample_index, self.get_sample(sample_index), self.get_meta(sample_index)
 
-class PenelopeParser (InputParser):
-    # def __init__(self, *args, **kwargs):
-    #     super().__init__(*args, **kwargs)
-    
+class RooTrackerParser (InputParser):
     def open_file_handle(self):
-        # import h5py
-        # self.file_handle = h5py.File(self.input_filename)
-        return 
+        from ROOT import TFile, TG4Event
+
+        self.file_handle = TFile(self.input_filename)
+        self.inputTree = self.file_handle.Get("EDepSimEvents")
+
+        self.event = TG4Event()
+        self.inputTree.SetBranchAddress("Event", self.event)
 
     def generate_sample_order(self, sequential_sampling):
-        # n_images_per_file = len(np.unique(self.file_handle['trajectories']['eventID']))
-        return 
-        
-    def get_penelope_sample(self):
-        print ("wowzers")
-        print (self.input_filename)
-        # do the magic that lets you read from a penelope file
-        return None
+        n_images_per_file = self.inputTree.GetEntriesFast()
+        if sequential_sampling:
+            self.sampling_order = np.arange(n_images_per_file)
+        else:
+            self.sampling_order = np.random.choice(n_images_per_file,
+                                                   n_images_per_file,
+                                                   replace = False)
 
-    def get_sample(self, index):
-        return self.get_penelope_sample(index)
-    
-    def get_meta(self, index):
-        return None
-
-class RooTrackerParser (InputParser):
     def get_G4_sample(self, sample_index):
-        return None
-        # do the magic that lets you read from a Geant4 ROOT file
+        self.inputTree.GetEntry(sample_index)
+
+        segment_dtype = np.dtype([("x_start", "f4"),
+                                  ("y_start", "f4"),
+                                  ("z_start", "f4"),
+                                  ("x_end", "f4"),
+                                  ("y_end", "f4"),
+                                  ("z_end", "f4"),
+                                  ("dE", "f4"),
+                                  ("dx", "f4"),
+                                  ("dEdx", "f4")],
+                                 align = True)
+        segment_array = np.array([], dtype = segment_dtype)
+
+        for container_name, hit_segments in self.event.SegmentDetectors:
+            for segment in hit_segments:
+                x_start = segment.GetStart().X()
+                y_start = segment.GetStart().Y()
+                z_start = segment.GetStart().Z()
+                x_end = segment.GetStop().X()
+                y_end = segment.GetStop().Y()
+                z_end = segment.GetStop().Z()
+
+                x_d = x_end - x_start
+                y_d = y_end - y_start
+                z_d = z_end - z_start
+                dx = np.sqrt(x_d**2 + y_d**2 + z_d**2)
+                
+                dE = segment.GetEnergyDeposit()
+                dEdx = dE/dx if dx > 0 else 0
+                
+                this_segment_array = np.array([(x_start,
+                                                y_start,
+                                                z_start,
+                                                x_end,
+                                                y_end,
+                                                z_end,
+                                                dE,
+                                                dx,
+                                                dEdx)],
+                                              dtype = segment_dtype)
+                segment_array = np.concatenate((this_segment_array,
+                                                segment_array))
+
+        charge_per_segment = self.do_recombination(segment_array)
+        charge_points, charge_values = self.do_point_sampling(segment_array, charge_per_segment)
+
+        return Track(charge_points, charge_values)
+
+    def get_G4_meta(self, sample_index):
+        primary_vertex = self.event.Primaries[0] # assume only one primary for now
+
+        vertex_x = primary_vertex.GetPosition().X()
+        vertex_y = primary_vertex.GetPosition().Y()
+        vertex_z = primary_vertex.GetPosition().Z()
+        
+        primary_trajectory = self.event.Trajectories[0]
+        assert primary_trajectory.GetParentId() == -1
+
+        pdg_code = primary_trajectory.GetPDGCode()
+        mass = particle.Particle.from_pdgid(pdg_code).mass # MeV/c^2
+        energy = primary_trajectory.GetInitialMomentum()[3]
+        momentum = [primary_trajectory.GetInitialMomentum()[i] for i in range(3)]
+        kinetic_energy = energy - mass
+
+        theta = np.arctan2(momentum[1], momentum[0])
+        phi = np.arctan2(np.sqrt(momentum[0]**2 + momentum[1]**2), momentum[2])
+        
+        meta_array = np.array([(sample_index,
+                                kinetic_energy,
+                                -1, # charge undefined
+                                vertex_x, vertex_y, vertex_z,
+                                theta, phi,
+                                -1, # primary length undefined
+                                )],
+                              dtype = meta_dtype)
+        return meta_array
+
+    def do_recombination(self, segments):
+        dE = segments['dE']
+        dEdx = segments['dEdx']
+        E_field = self.physics_config['charge_drift']['drift_field']
+        LAr_density = self.physics_config['material']['density']
+
+        mode = 'box'
+        # mode = 'birks'
+        if mode == 'box':
+            box_beta = self.physics_config['box_model']['box_alpha']
+            box_alpha = self.physics_config['box_model']['box_beta']
+
+            csi = box_beta*dEdx/(E_field*LAr_density)
+            recomb = np.max(np.stack([np.zeros_like(dE),
+                                      np.log(box_alpha + csi)/csi]),
+                            axis = 0)
+
+        elif mode == 'birks':
+            birks_ab = self.physics_config['birks_model']['birks_ab']
+            birks_kb = self.physics_config['birks_model']['birks_kb']
+
+            recomb = birks_ab/(1 + birks_kb*dEdx/(E_field * LAr_density))
+
+        else:
+            raise ValueError("Invalid recombination mode: must be 'physics.BOX' or 'physics.BRIKS'")
+
+        if np.any(np.isnan(recomb)):
+            raise RuntimeError("Invalid recombination value")
+
+        w_ion = self.physics_config['material']['w']
+        charge_yield_per_energy = recomb/w_ion
+
+        n_electrons = segments['dE']*charge_yield_per_energy
+        return n_electrons
+    
+    def do_point_sampling(self, segments, charge_per_segment):
+        # point sampling with a fixed number of samples per length
+        # it may be faster to do sampling another way (test in future!)
+        #  - sample with fixed amount of charge
+        #  - sample with fixed number of samples per segment
+
+        # sample_density = 1.e4 # samples per unit length
+        sample_density = 1.e3 # samples per unit length
+        start_vec = np.array([segments['x_start'],
+                              segments['y_start'],
+                              segments['z_start']])
+        end_vec = np.array([segments['x_end'],
+                            segments['y_end'],
+                            segments['z_end']])
+        segment_dirs = end_vec - start_vec
+
+        samples_per_segment = (segments['dx']*sample_density).astype(int)
+
+        sample_positions = np.concatenate([(start_vec[:,i,None] + np.linspace(0, 1, samples_per_segment[i])*segment_dirs[:,i,None]).T
+                                           for i in range(len(samples_per_segment))])
+
+        sample_charges = np.concatenate([samples_per_segment[i]*[charge_per_segment[i]/samples_per_segment[i]]
+                                         for i in range(len(samples_per_segment))])
+        
+        return sample_positions, sample_charges
+
 
     def get_sample(self, index):
         return self.get_G4_sample(index)
 
-class QPixParser (InputParser):
-    def open_file_handle(self):
-        import ROOT
-        self.file_handle = ROOT.TFile(self.input_filename)
-
-        self.ttree = self.file_handle.Get("event_tree")
-
-    def generate_sample_order(self, sequential_sampling):
-        n_images_per_file = self.ttree.GetEntries()
-
-    def get_sample(self, index):
-        # from array import array
-        import numpy as np
-
-        # self.ttree.GetEntry(index)
-        self.number_particles = np.array([0])
-        self.hit_start_x = np.array([0])
-        N = 1
-        self.particle_pdg_code = np.array(N*[0])
-        self.particle_mass = np.array(N*[0.])
-
-        self.particle_initial_x = np.array(N*[0])
-        self.particle_initial_y = np.array(N*[0])
-        self.particle_initial_z = np.array(N*[0])
-
-        self.ttree.SetBranchAddress("number_particles", self.number_particles)
-        self.ttree.SetBranchAddress("hit_start_x", self.hit_start_x)
-        self.ttree.SetBranchAddress("particle_pdg_code", self.particle_pdg_code)
-        self.ttree.SetBranchAddress("particle_mass", self.particle_mass)
-
-        self.ttree.SetBranchAddress("particle_initial_x", self.particle_initial_x)
-        self.ttree.SetBranchAddress("particle_initial_y", self.particle_initial_y)
-        self.ttree.SetBranchAddress("particle_initial_z", self.particle_initial_z)
-
-        self.ttree.GetEntry(index)
-
-        # self.particle_charge = array('f', self.number_particles*[0.])
-        # self.hit_start_x = array('f', self.number_particles*[0.])
-        # self.particle_charge = array('f', [0.])
-        # self.hit_start_x = array('i', [0])
-
-        # self.ttree.SetBranchAddress("particle_charge", self.particle_charge)
-
-        self.ttree.GetEntry(index)
-
-        print (self.number_particles,
-               # self.particle_charge,
-               # self.hit_start_x,
-               self.particle_pdg_code,
-               self.particle_mass,
-               # self.particle_initial_x,
-               # self.particle_initial_y,
-               # self.particle_initial_z,
-               )
-        return None
-
     def get_meta(self, index):
-        return None
+        return self.get_G4_meta(index)
 
 class EdepSimParser (InputParser):
     # Unit conventions for edepsim inputs:
@@ -241,12 +315,35 @@ class EdepSimParser (InputParser):
         return sample_positions, sample_charges
 
     def get_sample(self, index):
-        print ("sample", self.get_edepsim_event(index))
         return self.get_edepsim_event(index)
 
     def get_meta(self, index):
-        print ("meta", self.get_edepsim_meta(index))
         return self.get_edepsim_meta(index)
+
+class PenelopeParser (InputParser):
+    # def __init__(self, *args, **kwargs):
+    #     super().__init__(*args, **kwargs)
+    
+    def open_file_handle(self):
+        # import h5py
+        # self.file_handle = h5py.File(self.input_filename)
+        return 
+
+    def generate_sample_order(self, sequential_sampling):
+        # n_images_per_file = len(np.unique(self.file_handle['trajectories']['eventID']))
+        return 
+        
+    def get_penelope_sample(self):
+        print ("wowzers")
+        print (self.input_filename)
+        # do the magic that lets you read from a penelope file
+        return None
+
+    def get_sample(self, index):
+        return self.get_penelope_sample(index)
+    
+    def get_meta(self, index):
+        return None
 
 class MarleyParser (InputParser):
     # Unit conventions for Marley inputs:
@@ -282,7 +379,6 @@ class MarleyParser (InputParser):
         trajectory_mask = self.file_handle['trajectories']['eventID'] == sample_index
         event_trajectories = self.file_handle['trajectories'][trajectory_mask]
         primary_trajectory = event_trajectories[event_trajectories['parentID'] == -1]
-        print ("primary", primary_trajectory)
         
         return None
         # return Track(charge_points, charge_values)
@@ -352,5 +448,64 @@ class MarleyParser (InputParser):
         return self.get_edepsim_event(index)
 
     def get_meta(self, index):
-        print ("calling get_meta method")
         return self.get_edepsim_meta(index)
+
+class QPixParser (InputParser):
+    def open_file_handle(self):
+        import ROOT
+        self.file_handle = ROOT.TFile(self.input_filename)
+
+        self.ttree = self.file_handle.Get("event_tree")
+
+    def generate_sample_order(self, sequential_sampling):
+        n_images_per_file = self.ttree.GetEntries()
+
+    def get_sample(self, index):
+        # from array import array
+        import numpy as np
+
+        # self.ttree.GetEntry(index)
+        self.number_particles = np.array([0])
+        self.hit_start_x = np.array([0])
+        N = 1
+        self.particle_pdg_code = np.array(N*[0])
+        self.particle_mass = np.array(N*[0.])
+
+        self.particle_initial_x = np.array(N*[0])
+        self.particle_initial_y = np.array(N*[0])
+        self.particle_initial_z = np.array(N*[0])
+
+        self.ttree.SetBranchAddress("number_particles", self.number_particles)
+        self.ttree.SetBranchAddress("hit_start_x", self.hit_start_x)
+        self.ttree.SetBranchAddress("particle_pdg_code", self.particle_pdg_code)
+        self.ttree.SetBranchAddress("particle_mass", self.particle_mass)
+
+        self.ttree.SetBranchAddress("particle_initial_x", self.particle_initial_x)
+        self.ttree.SetBranchAddress("particle_initial_y", self.particle_initial_y)
+        self.ttree.SetBranchAddress("particle_initial_z", self.particle_initial_z)
+
+        self.ttree.GetEntry(index)
+
+        # self.particle_charge = array('f', self.number_particles*[0.])
+        # self.hit_start_x = array('f', self.number_particles*[0.])
+        # self.particle_charge = array('f', [0.])
+        # self.hit_start_x = array('i', [0])
+
+        # self.ttree.SetBranchAddress("particle_charge", self.particle_charge)
+
+        self.ttree.GetEntry(index)
+
+        print (self.number_particles,
+               # self.particle_charge,
+               # self.hit_start_x,
+               self.particle_pdg_code,
+               self.particle_mass,
+               # self.particle_initial_x,
+               # self.particle_initial_y,
+               # self.particle_initial_z,
+               )
+        return None
+
+    def get_meta(self, index):
+        return None
+
