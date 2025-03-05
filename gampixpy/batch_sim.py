@@ -69,7 +69,6 @@ if __name__ == '__main__':
                         default = "",
                         help = 'readout configuration yaml')
 
-
     args = parser.parse_args()
 
     main(args)

@@ -1,4 +1,3 @@
-import gampixpy
 from gampixpy import detector, input_parsing, plotting, config, output
 
 def main(args):

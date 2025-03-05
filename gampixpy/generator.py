@@ -72,9 +72,6 @@ class LineSource (Generator):
                             np.cos(self.phi),
                             ])
         
-        # charge_points = np.stack(self.n_samples_per_point*[[self.x_init,
-        #                                                     self.y_init,
-        #                                                     self.z_init]])
         charge_points = pos_vec + np.linspace(0, 1, self.n_samples_per_segment)[:,None]*dir_vec*self.length
         # uniform charge profile (subject to change?)
         charge_values = np.array(self.n_samples_per_segment*[self.q/self.n_samples_per_segment,

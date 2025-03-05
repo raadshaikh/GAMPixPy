@@ -1,4 +1,3 @@
-import gampixpy
 from gampixpy import detector, generator, input_parsing, plotting, config, output
 
 import tqdm
