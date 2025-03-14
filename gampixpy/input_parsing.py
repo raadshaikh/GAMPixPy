@@ -465,6 +465,159 @@ class MarleyParser (InputParser):
     def get_meta(self, index):
         return self.get_G4_meta(index)
 
+class MarleyCSVParser (InputParser):
+    def open_file_handle(self):
+        self.col_names = ('run', 'subrun', 'event',
+                          'isSignal', 'pdgCode', 'trackID',
+                          'motherID', 'startE', 'dE',
+                          'startX', 'startY',
+                          'startZ', 'startT',
+                          'endX', 'endY',
+                          'endZ', 'endT',
+                          )
+        self.col_types = ('i4', 'i4', 'i4',
+                          'b1', 'i4', 'i4',
+                          'i4', 'f4', 'f4',
+                          'f4', 'f4',
+                          'f4', 'f4',
+                          'f4', 'f4',
+                          'f4', 'f4',
+                          )
+
+        self.data_table = np.loadtxt(self.input_filename,
+                                     skiprows = 1, # first row is a header column
+                                     delimiter = ',', 
+                                     dtype = {'names': self.col_names,
+                                              'formats': self.col_types},
+                                     )
+
+    def generate_sample_order(self, sequential_sampling):
+
+        unique_event_ids = np.unique(self.data_table['event'])
+        if sequential_sampling:
+            self.sampling_order = unique_event_ids
+        else:
+            self.sampling_order = np.random.choice(unique_event_ids,
+                                                   len(unique_event_ids),
+                                                   replace = False)
+
+    def get_CSV_sample(self, sample_index):
+        event_mask = self.data_table['event'] == sample_index
+        event_rows = self.data_table[event_mask]
+        print (event_rows)
+        print (event_rows.shape)
+        
+        segment_dtype = np.dtype([("x_start", "f4"),
+                                  ("y_start", "f4"),
+                                  ("z_start", "f4"),
+                                  ("x_end", "f4"),
+                                  ("y_end", "f4"),
+                                  ("z_end", "f4"),
+                                  ("dE", "f4"),
+                                  ("dx", "f4"),
+                                  ("dEdx", "f4")],
+                                 align = True)
+        segment_array = np.empty(event_rows.shape, dtype = segment_dtype)
+        
+        segment_array['x_start'] = event_rows['startX']
+        segment_array['y_start'] = event_rows['startY']
+        segment_array['z_start'] = event_rows['startZ']
+
+        segment_array['x_end'] = event_rows['endX']
+        segment_array['y_end'] = event_rows['endY']
+        segment_array['z_end'] = event_rows['endZ']
+
+        x_d = event_rows['endX'] - event_rows['startX']
+        y_d = event_rows['endY'] - event_rows['startY']
+        z_d = event_rows['endZ'] - event_rows['startZ']
+        dx = np.sqrt(x_d**2 + y_d**2 + z_d**2)
+        
+        segment_array['dE'] = event_rows['dE']
+        segment_array['dx'] = dx
+        segment_array['dEdx'] = np.where(dx > 0, event_rows['dE']/dx , 0)
+
+        charge_per_segment = self.do_recombination(segment_array)
+        charge_points, charge_values = self.do_point_sampling(segment_array, charge_per_segment)
+
+        return Track(charge_points, charge_values)
+
+    def get_CSV_meta(self, sample_index):
+        data_table = np.loadtxt(self.input_filename,
+                                skiprows = 1, # first row is a header column
+                                delimiter = ',', 
+                                dtype = {'names': self.col_names,
+                                         'formats': self.col_types},
+                                )
+
+        return None
+
+    def do_recombination(self, segments):
+        dE = segments['dE']
+        dEdx = segments['dEdx']
+        E_field = self.physics_config['charge_drift']['drift_field']
+        LAr_density = self.physics_config['material']['density']
+
+        mode = 'box'
+        # mode = 'birks'
+        if mode == 'box':
+            box_beta = self.physics_config['box_model']['box_alpha']
+            box_alpha = self.physics_config['box_model']['box_beta']
+
+            csi = box_beta*dEdx/(E_field*LAr_density)
+            recomb = np.max(np.stack([np.zeros_like(dE),
+                                      np.log(box_alpha + csi)/csi]),
+                            axis = 0)
+
+        elif mode == 'birks':
+            birks_ab = self.physics_config['birks_model']['birks_ab']
+            birks_kb = self.physics_config['birks_model']['birks_kb']
+
+            recomb = birks_ab/(1 + birks_kb*dEdx/(E_field * LAr_density))
+
+        else:
+            raise ValueError("Invalid recombination mode: must be 'physics.BOX' or 'physics.BRIKS'")
+
+        if np.any(np.isnan(recomb)):
+            raise RuntimeError("Invalid recombination value")
+
+        w_ion = self.physics_config['material']['w']
+        charge_yield_per_energy = recomb/w_ion
+
+        n_electrons = segments['dE']*charge_yield_per_energy
+        return n_electrons
+    
+    def do_point_sampling(self, segments, charge_per_segment):
+        # point sampling with a fixed number of samples per length
+        # it may be faster to do sampling another way (test in future!)
+        #  - sample with fixed amount of charge
+        #  - sample with fixed number of samples per segment
+
+        # sample_density = 1.e4 # samples per unit length
+        sample_density = 1.e3 # samples per unit length
+        start_vec = np.array([segments['x_start'],
+                              segments['y_start'],
+                              segments['z_start']])
+        end_vec = np.array([segments['x_end'],
+                            segments['y_end'],
+                            segments['z_end']])
+        segment_dirs = end_vec - start_vec
+
+        samples_per_segment = (segments['dx']*sample_density).astype(int)
+
+        sample_positions = np.concatenate([(start_vec[:,i,None] + np.linspace(0, 1, samples_per_segment[i])*segment_dirs[:,i,None]).T
+                                           for i in range(len(samples_per_segment))])
+
+        sample_charges = np.concatenate([samples_per_segment[i]*[charge_per_segment[i]/samples_per_segment[i]]
+                                         for i in range(len(samples_per_segment))])
+        
+        return sample_positions, sample_charges
+
+    def get_sample(self, index):
+        return self.get_CSV_sample(index)
+
+    def get_meta(self, index):
+        return self.get_CSV_meta(index)
+
 class PenelopeParser (InputParser):
     # def __init__(self, *args, **kwargs):
     #     super().__init__(*args, **kwargs)

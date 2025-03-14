@@ -1,0 +1,83 @@
+import gampixpy
+from gampixpy import detector, input_parsing, plotting, config, output
+
+def main(args):
+
+    # load configs for physics, detector, and readout
+
+    if args.detector_config == "":
+        detector_config = config.default_detector_params
+    else:
+        detector_config = config.DetectorConfig(args.detector_config)
+
+    if args.physics_config == "":
+        physics_config = config.default_physics_params
+    else:
+        physics_config = config.PhysicsConfig(args.physics_config)
+
+    if args.readout_config == "":
+        readout_config = config.default_readout_params
+    else:
+        readout_config = config.ReadoutConfig(args.readout_config)
+
+    detector_model = detector.DetectorModel(detector_params = detector_config,
+                                            physics_params = physics_config,
+                                            readout_params = readout_config,
+                                            )
+
+    input_parser = input_parsing.MarleyCSVParser(args.input_CSV_file)
+    root_track = input_parser.get_sample(args.event_index)
+    root_event_meta = input_parser.get_meta(args.event_index)
+    # evd = plotting.EventDisplay(root_track)
+
+    detector_model.drift(root_track)
+
+    # evd.init_fig()
+    # evd.plot_drifted_track()
+
+    detector_model.readout(root_track)
+    # evd.plot_drifted_track()
+    # evd.plot_coarse_tile_measurement(gampixD_readout_config)
+    # evd.plot_pixel_measurement(readout_config)
+    # evd.plot_raw_track()
+    # evd.show()
+
+    if args.output_file:
+        om = output.OutputManager(args.output_file)
+        om.add_entry(root_track, root_event_meta)
+        # om.add_track(root_track)
+
+    return
+
+if __name__ == '__main__':
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('input_CSV_file',
+                        type = str,
+                        help = 'input file from which to read and simulate an event')
+    parser.add_argument('-e', '--event_index',
+                        type = int,
+                        default = 5,
+                        help = 'index of the event within the input file to be simulated')
+    parser.add_argument('-o', '--output_file',
+                        type = str,
+                        default = "",
+                        help = 'output hdf5 file to store coarse tile and pixel measurements')
+
+    parser.add_argument('-d', '--detector_config',
+                        type = str,
+                        default = "",
+                        help = 'detector configuration yaml')
+    parser.add_argument('-p', '--physics_config',
+                        type = str,
+                        default = "",
+                        help = 'physics configuration yaml')
+    parser.add_argument('-r', '--readout_config',
+                        type = str,
+                        default = "",
+                        help = 'readout configuration yaml')
+
+    args = parser.parse_args()
+
+    main(args)
