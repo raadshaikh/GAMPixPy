@@ -383,8 +383,6 @@ class MarleyCSVParser (SegmentParser):
     def get_CSV_sample(self, sample_index):
         event_mask = self.data_table['event'] == sample_index
         event_rows = self.data_table[event_mask]
-        print (event_rows)
-        print (event_rows.shape)
         
         segment_dtype = np.dtype([("x_start", "f4"),
                                   ("y_start", "f4"),
@@ -421,12 +419,40 @@ class MarleyCSVParser (SegmentParser):
         return Track(charge_points, charge_values)
 
     def get_CSV_meta(self, sample_index):
-        data_table = np.loadtxt(self.input_filename,
-                                skiprows = 1, # first row is a header column
-                                delimiter = ',', 
-                                dtype = {'names': self.col_names,
-                                         'formats': self.col_types},
-                                )
+        event_mask = self.data_table['event'] == sample_index
+        event_rows = self.data_table[event_mask]
+        
+        segment_dtype = np.dtype([("x_start", "f4"),
+                                  ("y_start", "f4"),
+                                  ("z_start", "f4"),
+                                  ("x_end", "f4"),
+                                  ("y_end", "f4"),
+                                  ("z_end", "f4"),
+                                  ("dE", "f4"),
+                                  ("dx", "f4"),
+                                  ("dEdx", "f4")],
+                                 align = True)
+        segment_array = np.empty(event_rows.shape, dtype = segment_dtype)
+        
+        segment_array['x_start'] = event_rows['startX']
+        segment_array['y_start'] = event_rows['startY']
+        segment_array['z_start'] = event_rows['startZ']
+
+        segment_array['x_end'] = event_rows['endX']
+        segment_array['y_end'] = event_rows['endY']
+        segment_array['z_end'] = event_rows['endZ']
+
+        x_d = event_rows['endX'] - event_rows['startX']
+        y_d = event_rows['endY'] - event_rows['startY']
+        z_d = event_rows['endZ'] - event_rows['startZ']
+        dx = np.sqrt(x_d**2 + y_d**2 + z_d**2)
+        
+        segment_array['dE'] = event_rows['dE']
+        segment_array['dx'] = dx
+        segment_array['dEdx'] = np.where(dx > 0, event_rows['dE']/dx , 0)
+
+        charge_per_segment = self.do_recombination(segment_array)
+        charge_points, charge_values = self.do_point_sampling(segment_array, charge_per_segment)
 
         return None
 
