@@ -421,40 +421,22 @@ class MarleyCSVParser (SegmentParser):
     def get_CSV_meta(self, sample_index):
         event_mask = self.data_table['event'] == sample_index
         event_rows = self.data_table[event_mask]
+
+        kinetic_energy = -1
+        charge = -1
+        vertex = [-1, -1, -1]
+        theta = -1
+        phi = -1
         
-        segment_dtype = np.dtype([("x_start", "f4"),
-                                  ("y_start", "f4"),
-                                  ("z_start", "f4"),
-                                  ("x_end", "f4"),
-                                  ("y_end", "f4"),
-                                  ("z_end", "f4"),
-                                  ("dE", "f4"),
-                                  ("dx", "f4"),
-                                  ("dEdx", "f4")],
-                                 align = True)
-        segment_array = np.empty(event_rows.shape, dtype = segment_dtype)
-        
-        segment_array['x_start'] = event_rows['startX']
-        segment_array['y_start'] = event_rows['startY']
-        segment_array['z_start'] = event_rows['startZ']
-
-        segment_array['x_end'] = event_rows['endX']
-        segment_array['y_end'] = event_rows['endY']
-        segment_array['z_end'] = event_rows['endZ']
-
-        x_d = event_rows['endX'] - event_rows['startX']
-        y_d = event_rows['endY'] - event_rows['startY']
-        z_d = event_rows['endZ'] - event_rows['startZ']
-        dx = np.sqrt(x_d**2 + y_d**2 + z_d**2)
-        
-        segment_array['dE'] = event_rows['dE']
-        segment_array['dx'] = dx
-        segment_array['dEdx'] = np.where(dx > 0, event_rows['dE']/dx , 0)
-
-        charge_per_segment = self.do_recombination(segment_array)
-        charge_points, charge_values = self.do_point_sampling(segment_array, charge_per_segment)
-
-        return None
+        meta_array = np.array([(sample_index,
+                                kinetic_energy,
+                                charge, # charge undefined
+                                vertex[0], vertex[1], vertex[2],
+                                theta, phi,
+                                -1, # primary length undefined
+                                )],
+                              dtype = meta_dtype)
+        return meta_array
 
     def get_sample(self, index):
         return self.get_CSV_sample(index)
