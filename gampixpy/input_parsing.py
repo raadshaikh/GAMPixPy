@@ -67,14 +67,12 @@ class SegmentParser (InputParser):
         n_electrons = segments['dE']*charge_yield_per_energy
         return n_electrons
     
-    def do_point_sampling(self, segments, charge_per_segment):
+    def do_point_sampling(self, segments, charge_per_segment, return_time = False, sample_density = 1.e3):
         # point sampling with a fixed number of samples per length
         # it may be faster to do sampling another way (test in future!)
         #  - sample with fixed amount of charge
         #  - sample with fixed number of samples per segment
 
-        # sample_density = 1.e4 # samples per unit length
-        sample_density = 1.e3 # samples per unit length
         start_vec = np.array([segments['x_start'],
                               segments['y_start'],
                               segments['z_start']])
@@ -82,7 +80,8 @@ class SegmentParser (InputParser):
                             segments['y_end'],
                             segments['z_end']])
         segment_dirs = end_vec - start_vec
-
+        segment_intervals = segments['t_end'] - segments['t_start']
+        
         samples_per_segment = (segments['dx']*sample_density).astype(int)
 
         sample_positions = np.concatenate([(start_vec[:,i,None] + np.linspace(0, 1, samples_per_segment[i])*segment_dirs[:,i,None]).T
@@ -90,7 +89,13 @@ class SegmentParser (InputParser):
 
         sample_charges = np.concatenate([samples_per_segment[i]*[charge_per_segment[i]/samples_per_segment[i]]
                                          for i in range(len(samples_per_segment))])
-        
+
+        if return_time:
+            sample_times = np.concatenate([(segments['t_start'][i] + np.linspace(0, 1, samples_per_segment[i])*segment_intervals[i])
+                                           for i in range(len(samples_per_segment))])
+
+            return sample_positions, sample_charges, sample_times
+
         return sample_positions, sample_charges
             
 class RooTrackerParser (SegmentParser):
@@ -387,9 +392,11 @@ class MarleyCSVParser (SegmentParser):
         segment_dtype = np.dtype([("x_start", "f4"),
                                   ("y_start", "f4"),
                                   ("z_start", "f4"),
+                                  ("t_start", "f4"),
                                   ("x_end", "f4"),
                                   ("y_end", "f4"),
                                   ("z_end", "f4"),
+                                  ("t_end", "f4"),
                                   ("dE", "f4"),
                                   ("dx", "f4"),
                                   ("dEdx", "f4")],
@@ -399,10 +406,12 @@ class MarleyCSVParser (SegmentParser):
         segment_array['x_start'] = event_rows['startX']
         segment_array['y_start'] = event_rows['startY']
         segment_array['z_start'] = event_rows['startZ']
+        segment_array['t_start'] = event_rows['startT']
 
         segment_array['x_end'] = event_rows['endX']
         segment_array['y_end'] = event_rows['endY']
         segment_array['z_end'] = event_rows['endZ']
+        segment_array['t_end'] = event_rows['endT']
 
         x_d = event_rows['endX'] - event_rows['startX']
         y_d = event_rows['endY'] - event_rows['startY']
@@ -413,10 +422,16 @@ class MarleyCSVParser (SegmentParser):
         segment_array['dx'] = dx
         segment_array['dEdx'] = np.where(dx > 0, event_rows['dE']/dx , 0)
 
+        print ("doing recombination")
         charge_per_segment = self.do_recombination(segment_array)
-        charge_points, charge_values = self.do_point_sampling(segment_array, charge_per_segment)
+        print ("doing point sampling")
+        charge_points, charge_values, charge_times = self.do_point_sampling(segment_array,
+                                                                            charge_per_segment,
+                                                                            return_time = True,
+                                                                            sample_density = 10)
+        print ("done point sampling")
 
-        return Track(charge_points, charge_values)
+        return Track(charge_points, charge_values, charge_times)
 
     def get_CSV_meta(self, sample_index):
         event_mask = self.data_table['event'] == sample_index
