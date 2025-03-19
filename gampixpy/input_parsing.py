@@ -1,5 +1,6 @@
 from gampixpy.tracks import Track
 from gampixpy.config import default_physics_params
+from gampixpy.units import *
 
 import numpy as np
 import particle
@@ -403,33 +404,37 @@ class MarleyCSVParser (SegmentParser):
                                  align = True)
         segment_array = np.empty(event_rows.shape, dtype = segment_dtype)
         
-        segment_array['x_start'] = event_rows['startX']
-        segment_array['y_start'] = event_rows['startY']
-        segment_array['z_start'] = event_rows['startZ']
-        segment_array['t_start'] = event_rows['startT']
+        # segment_array['x_start'] = event_rows['startX']*mm
+        # segment_array['y_start'] = event_rows['startY']*mm
+        # segment_array['z_start'] = event_rows['startZ']*mm
+        segment_array['x_start'] = event_rows['startY']*mm
+        segment_array['y_start'] = event_rows['startZ']*mm
+        segment_array['z_start'] = event_rows['startX']*mm
+        segment_array['t_start'] = event_rows['startT']*ns
 
-        segment_array['x_end'] = event_rows['endX']
-        segment_array['y_end'] = event_rows['endY']
-        segment_array['z_end'] = event_rows['endZ']
-        segment_array['t_end'] = event_rows['endT']
+        # segment_array['x_end'] = event_rows['endX']*mm
+        # segment_array['y_end'] = event_rows['endY']*mm
+        # segment_array['z_end'] = event_rows['endZ']*mm
+        segment_array['x_end'] = event_rows['endX']*mm
+        segment_array['y_end'] = event_rows['endY']*mm
+        segment_array['z_end'] = event_rows['endZ']*mm
+        segment_array['t_end'] = event_rows['endT']*ns
 
         x_d = event_rows['endX'] - event_rows['startX']
         y_d = event_rows['endY'] - event_rows['startY']
         z_d = event_rows['endZ'] - event_rows['startZ']
         dx = np.sqrt(x_d**2 + y_d**2 + z_d**2)
         
-        segment_array['dE'] = event_rows['dE']
+        segment_array['dE'] = event_rows['dE']*MeV
         segment_array['dx'] = dx
         segment_array['dEdx'] = np.where(dx > 0, event_rows['dE']/dx , 0)
 
-        print ("doing recombination")
         charge_per_segment = self.do_recombination(segment_array)
-        print ("doing point sampling")
         charge_points, charge_values, charge_times = self.do_point_sampling(segment_array,
                                                                             charge_per_segment,
                                                                             return_time = True,
-                                                                            sample_density = 10)
-        print ("done point sampling")
+                                                                            sample_density = 1.e2,
+                                                                            )
 
         return Track(charge_points, charge_values, charge_times)
 
