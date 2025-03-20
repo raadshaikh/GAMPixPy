@@ -66,7 +66,8 @@ class EventDisplay:
 
         for this_hit in self.track_object.coarse_tiles_samples:
             cell_center_xy = this_hit.coarse_cell_pos
-            cell_center_z = this_hit.coarse_measurement_time
+            # cell_center_z = this_hit.coarse_measurement_time
+            cell_center_z = this_hit.coarse_measurement_depth
             cell_measurement = this_hit.coarse_cell_measurement
 
             x_bounds = [cell_center_xy[0] - 0.5*readout_config['coarse_tiles']['pitch'],
@@ -117,7 +118,8 @@ class EventDisplay:
         
         for this_hit in self.track_object.pixel_samples:
             cell_center_xy = this_hit.pixel_pos
-            cell_center_z = this_hit.hit_timestamp
+            # cell_center_z = this_hit.hit_timestamp
+            cell_center_z = this_hit.hit_depth
             cell_measurement = this_hit.hit_measurement
 
             x_bounds = [cell_center_xy[0] - 0.5*readout_config['pixels']['pitch'],

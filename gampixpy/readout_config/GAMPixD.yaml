@@ -7,11 +7,13 @@ coarse_tiles:
   type: coarse_tiles
   pitch: 10 # cm
   gap: 0.01 # cm
-  power_per_tile: 1e-3
+  power_per_tile: 1.e-3
   noise: 50
   signal_fraction: 1
   threshold_sigma: 5.0
   z_bin_width: 50 # cm
+  clock_interval: 1.e-6 # s
+  hit_duration: 1.e-4 # s
   integration_length: 1
 
 pixels:
@@ -21,4 +23,6 @@ pixels:
   noise: 40
   threshold_sigma: 4.0
   z_bin_width: 0.5
+  clock_interval: 1.e-6 # s
+  hit_duration: 3.e-6 # s
   integration_length: 1

@@ -11,6 +11,8 @@ class GAMPixModel:
         # apply the electronics response simulation to
         # a track containing a drifted charge sample
 
+        self.clock_start_time = np.min(track.drifted_track['times'])
+
         print ("simulating coarse grid...")
         # do coarse grid binning/time series formation
         coarse_tile_timeseries = self.transverse_tile_binning(track)
@@ -41,6 +43,7 @@ class GAMPixModel:
         tile_hash = np.array([hash(tuple(ind)) for ind in tile_ind])
 
         z_series = track.drifted_track['position'][inside_anode_mask,2]
+        t_series = track.drifted_track['times'][inside_anode_mask]
         charge_series = track.drifted_track['charge'][inside_anode_mask]
         
         coarse_grid_timeseries = {}
@@ -55,8 +58,10 @@ class GAMPixModel:
             
             sample_mask = tile_hash == this_tile_hash
             tile_hit_drift_positions = z_series[sample_mask]
+            tile_hit_arrival_times = t_series[sample_mask]
             tile_hit_charges = charge_series[sample_mask]
-            coarse_grid_timeseries[tile_coord] = np.array([tile_hit_drift_positions,
+            coarse_grid_timeseries[tile_coord] = np.array([tile_hit_arrival_times,
+                                                           tile_hit_drift_positions,
                                                            tile_hit_charges]).T
 
 
@@ -76,19 +81,24 @@ class GAMPixModel:
         """
         # TODO: fix logic for integration_length > 1
         hits = []
-
-        # set up the clock cycle boundaries
-        n_z_bins = int((self.readout_config['anode']['z_range'][1] - self.readout_config['anode']['z_range'][0])/self.readout_config['coarse_tiles']['z_bin_width'])
-        drift_bin_edges = np.linspace(self.readout_config['anode']['z_range'][0],
-                                      self.readout_config['anode']['z_range'][1],
-                                      n_z_bins + 1,
-                                      )
         
         for tile_center, timeseries in tile_timeseries.items():
+            # set up the clock cycle boundaries
+            # binning using arrival time (allows for asynchronous ionization)
+            last_charge_arrival_time = np.max(timeseries[:,0])
+            n_clock_ticks = int((last_charge_arrival_time - self.clock_start_time)//self.readout_config['coarse_tiles']['clock_interval'])
+            # this is the densest possible set of bins
+            # making a dense histogram of these is going to be too much data
+            arrival_time_bin_edges = np.linspace(self.clock_start_time,
+                                                 self.clock_start_time + n_clock_ticks*self.readout_config['coarse_tiles']['clock_interval'],
+                                                 n_clock_ticks + 1,
+                                                 )
+
             # find the charge which falls into each clock bin
             inst_charge, _ = np.histogram(timeseries[:,0],
-                                          weights = timeseries[:,1],
-                                          bins = drift_bin_edges)
+                                          weights = timeseries[:,2],
+                                          bins = arrival_time_bin_edges)
+
             # cumulative charge since last digitized sample
             cum_charge = np.cumsum(inst_charge)
             cum_charge = np.concatenate(([0], cum_charge))
@@ -109,13 +119,17 @@ class GAMPixModel:
                 threshold_crossing_mask = window_charge[1:-self.readout_config['coarse_tiles']['integration_length']] > threshold
 
                 if np.any(threshold_crossing_mask):
-                    threshold_crossing_z = drift_bin_edges[:-1][threshold_crossing_mask][0]
+                    # threshold_crossing_z = drift_bin_edges[:-1][threshold_crossing_mask][0] 
+                    threshold_crossing_t = arrival_time_bin_edges[:-1][threshold_crossing_mask][0]
+                    threshold_crossing_z = threshold_crossing_t*1.6e5 # is there a better way to do this?
+                    
                     threshold_crossing_charge = window_charge[1:-self.readout_config['coarse_tiles']['integration_length']][threshold_crossing_mask][0]
 
                     cum_charge = cum_charge - threshold_crossing_charge
                     cum_charge = np.max(np.stack([cum_charge, np.zeros_like(cum_charge)]), axis = 0) # don't subtract charge below zero
-            
+
                     hits.append(CoarseGridSample(tile_center,
+                                                 threshold_crossing_t,
                                                  threshold_crossing_z,
                                                  threshold_crossing_charge))
                 else:
@@ -161,6 +175,7 @@ class GAMPixModel:
                                   np.linspace(y_bounds[0], y_bounds[1], n_pixels_y+1))
             
             z_series = in_cell_positions[:,2]
+            t_series = track.drifted_track['times'][in_cell_mask]
             charge_series = in_cell_charges
 
             unique_pixel_hashes, unique_pixel_key = np.unique(pixel_hash, return_index = True)
@@ -175,8 +190,10 @@ class GAMPixModel:
                 sample_mask = pixel_hash == this_pixel_hash
 
                 this_hit_drift_positions = z_series[sample_mask]
+                this_hit_arrival_times = t_series[sample_mask]
                 this_hit_charges = charge_series[sample_mask]
-                fine_pixel_timeseries[pixel_coord] = np.array([this_hit_drift_positions,
+                fine_pixel_timeseries[pixel_coord] = np.array([this_hit_arrival_times,
+                                                               this_hit_drift_positions,
                                                                this_hit_charges]).T
         
         return fine_pixel_timeseries
@@ -192,17 +209,29 @@ class GAMPixModel:
         hits = []
 
         # set up the clock cycle boundaries
-        n_z_bins = int((self.readout_config['anode']['z_range'][1] - self.readout_config['anode']['z_range'][0])/self.readout_config['pixels']['z_bin_width'])
-        drift_bin_edges = np.linspace(self.readout_config['anode']['z_range'][0],
-                                      self.readout_config['anode']['z_range'][1],
-                                      n_z_bins + 1,
-                                      )
+        # n_z_bins = int((self.readout_config['anode']['z_range'][1] - self.readout_config['anode']['z_range'][0])/self.readout_config['pixels']['z_bin_width'])
+        # drift_bin_edges = np.linspace(self.readout_config['anode']['z_range'][0],
+        #                               self.readout_config['anode']['z_range'][1],
+        #                               n_z_bins + 1,
+        #                               )
         
         for pixel_center, timeseries in pixel_timeseries.items():
             # find the charge which falls into each clock bin
+            # inst_charge, _ = np.histogram(timeseries[:,0],
+            #                               weights = timeseries[:,1],
+            #                               bins = drift_bin_edges)
+            last_charge_arrival_time = np.max(timeseries[:,0])
+            n_clock_ticks = int((last_charge_arrival_time - self.clock_start_time)//self.readout_config['pixels']['clock_interval'])
+            arrival_time_bin_edges = np.linspace(self.clock_start_time,
+                                                 self.clock_start_time + n_clock_ticks*self.readout_config['coarse_tiles']['clock_interval'],
+                                                 n_clock_ticks + 1,
+                                                 )
+
+            # find the charge which falls into each clock bin
             inst_charge, _ = np.histogram(timeseries[:,0],
-                                          weights = timeseries[:,1],
-                                          bins = drift_bin_edges)
+                                          weights = timeseries[:,2],
+                                          bins = arrival_time_bin_edges)
+
             # cumulative charge since last digitized sample
             cum_charge = np.cumsum(inst_charge)
             cum_charge = np.concatenate(([0], cum_charge))
@@ -223,13 +252,16 @@ class GAMPixModel:
                 threshold_crossing_mask = window_charge[1:-self.readout_config['pixels']['integration_length']] > threshold
 
                 if np.any(threshold_crossing_mask):
-                    threshold_crossing_z = drift_bin_edges[:-1][threshold_crossing_mask][0]
+                    # threshold_crossing_z = drift_bin_edges[:-1][threshold_crossing_mask][0]
+                    threshold_crossing_t = arrival_time_bin_edges[:-1][threshold_crossing_mask][0]
+                    threshold_crossing_z = threshold_crossing_t*1.6e5 # is there a better way to do this?
                     threshold_crossing_charge = window_charge[1:-self.readout_config['pixels']['integration_length']][threshold_crossing_mask][0]
 
                     cum_charge = cum_charge - threshold_crossing_charge
                     cum_charge = np.max(np.stack([cum_charge, np.zeros_like(cum_charge)]), axis = 0) # don't subtract charge below zero
-            
+
                     hits.append(PixelSample(pixel_center,
+                                            threshold_crossing_t,
                                             threshold_crossing_z,
                                             threshold_crossing_charge))
                 else:
@@ -300,11 +332,17 @@ class DetectorModel:
         # charge is disturbed by attenuation
         drifted_charges = region_charges*np.exp(-drift_time/self.physics_params['charge_drift']['electron_lifetime'])
 
+        if np.any(sampled_track.raw_track['times']):
+            arrival_times = drift_time + sampled_track.raw_track['times'][region_mask]
+        else:
+            arrival_times = drift_time
+            
         # might also include a sub-sampling step?
         # in case initial sampling is not fine enough
 
         sampled_track.drifted_track = {'position': drifted_positions,
-                                       'charge': drifted_charges}
+                                       'charge': drifted_charges,
+                                       'times': arrival_times}
         return 
 
     def readout(self, drifted_track):
