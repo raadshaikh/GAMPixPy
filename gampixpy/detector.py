@@ -208,8 +208,10 @@ class GAMPixModel:
 
                 this_hit_drift_positions = z_series[sample_mask]
                 this_hit_charges = charge_series[sample_mask]
-                fine_pixel_timeseries[pixel_coord] = np.array([pixel_hit_drift_positions,
-                                                               pixel_hit_charges]).T
+                # fine_pixel_timeseries[pixel_coord] = np.array([drift_position,
+                #                                                charge]).T
+                fine_pixel_timeseries[pixel_coord] = np.array([this_hit_drift_positions,
+                                                               this_hit_charges]).T
         
             # for pixel_center, drift_position, charge in zip(pixel_centers, z_series, charge_series):
             #     # print (pixel_center)
@@ -223,7 +225,7 @@ class GAMPixModel:
             #     else:
             #         fine_pixel_timeseries[pixel_coord] = np.array([[drift_position, charge]])
 
-        raise ValueError ("REALLY, STOP")
+        # raise ValueError ("REALLY, STOP")
 
         return fine_pixel_timeseries
 

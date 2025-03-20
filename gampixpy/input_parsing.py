@@ -81,7 +81,6 @@ class SegmentParser (InputParser):
                             segments['y_end'],
                             segments['z_end']])
         segment_dirs = end_vec - start_vec
-        segment_intervals = segments['t_end'] - segments['t_start']
         
         samples_per_segment = (segments['dx']*sample_density).astype(int)
 
@@ -92,6 +91,7 @@ class SegmentParser (InputParser):
                                          for i in range(len(samples_per_segment))])
 
         if return_time:
+            segment_intervals = segments['t_end'] - segments['t_start']
             sample_times = np.concatenate([(segments['t_start'][i] + np.linspace(0, 1, samples_per_segment[i])*segment_intervals[i])
                                            for i in range(len(samples_per_segment))])
 
