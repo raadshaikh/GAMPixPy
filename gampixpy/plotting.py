@@ -16,6 +16,9 @@ class EventDisplay:
     def show(self):
         plt.show()
 
+    def save(self, outfile):
+        self.fig.savefig(outfile)
+
     def plot_raw_track(self):
 
         n_points = self.track_object.raw_track['position'].shape[0]

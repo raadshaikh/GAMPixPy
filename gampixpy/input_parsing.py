@@ -135,19 +135,19 @@ class RooTrackerParser (SegmentParser):
 
         for container_name, hit_segments in self.event.SegmentDetectors:
             for segment in hit_segments:
-                x_start = segment.GetStart().X()
-                y_start = segment.GetStart().Y()
-                z_start = segment.GetStart().Z()
-                x_end = segment.GetStop().X()
-                y_end = segment.GetStop().Y()
-                z_end = segment.GetStop().Z()
+                x_start = segment.GetStart().X()*mm
+                y_start = segment.GetStart().Y()*mm
+                z_start = segment.GetStart().Z()*mm
+                x_end = segment.GetStop().X()*mm
+                y_end = segment.GetStop().Y()*mm
+                z_end = segment.GetStop().Z()*mm
 
                 x_d = x_end - x_start
                 y_d = y_end - y_start
                 z_d = z_end - z_start
                 dx = np.sqrt(x_d**2 + y_d**2 + z_d**2)
                 
-                dE = segment.GetEnergyDeposit()
+                dE = segment.GetEnergyDeposit()*MeV
                 dEdx = dE/dx if dx > 0 else 0
                 
                 this_segment_array = np.array([(x_start,
@@ -171,9 +171,9 @@ class RooTrackerParser (SegmentParser):
     def get_G4_meta(self, sample_index):
         primary_vertex = self.event.Primaries[0] # assume only one primary for now
 
-        vertex_x = primary_vertex.GetPosition().X()
-        vertex_y = primary_vertex.GetPosition().Y()
-        vertex_z = primary_vertex.GetPosition().Z()
+        vertex_x = primary_vertex.GetPosition().X()*mm
+        vertex_y = primary_vertex.GetPosition().Y()*mm
+        vertex_z = primary_vertex.GetPosition().Z()*mm
         
         primary_trajectory = self.event.Trajectories[0]
         assert primary_trajectory.GetParentId() == -1

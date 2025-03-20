@@ -39,56 +39,26 @@ class GAMPixModel:
 
         tile_ind = tile_ind[inside_anode_mask]
         tile_hash = np.array([hash(tuple(ind)) for ind in tile_ind])
-        print ("tile ind", tile_ind, tile_ind.shape)
-        print ("tile hash", tile_hash, tile_hash.shape)
-
-        # tile_centers = np.array([self.readout_config['tile_volume_edges'][i][tile_ind[:,i]] + 0.5*self.readout_config['coarse_tiles']['pitch']
-        #                          for i in range(2)]).T
-        # print ("tile centers", tile_centers.shape)
 
         z_series = track.drifted_track['position'][inside_anode_mask,2]
         charge_series = track.drifted_track['charge'][inside_anode_mask]
         
-        # coarse_grid_timeseries = {}
-        # for tile_center, drift_position, charge in zip(tile_centers, z_series, charge_series):
-        # # for tile_index, drift_position, charge in zip(tile_ind, z_series, charge_series):
-        #     print (tile_center)
-        #     # number of rounding digits is potentially problematic 
-        #     tile_coord = (round(float(tile_center[0]), 3),
-        #                   round(float(tile_center[1]), 3))
-        #     if tile_coord in coarse_grid_timeseries:
-        #         print (tile_coord)
-        #         coarse_grid_timeseries[tile_coord] = np.concatenate((coarse_grid_timeseries[tile_coord],
-        #                                                              np.array([[drift_position, charge]])),
-        #                                                             axis = 0)
-        #     else:
-        #         coarse_grid_timeseries[tile_coord] = np.array([[drift_position, charge]])
         coarse_grid_timeseries = {}
-        # print (tile_ind)
-        # print (tile_hash)
-        # print (np.unique(tile_hash), np.unique(tile_hash).shape)
         unique_tile_hashes, unique_tile_key = np.unique(tile_hash, return_index = True)
         unique_tile_indices = tile_ind[unique_tile_key]
-        # print (tile_ind[unique_tile_indices])
         
         for this_tile_hash, this_tile_ind in zip(unique_tile_hashes, unique_tile_indices):
             tile_center = np.array([self.readout_config['tile_volume_edges'][i][this_tile_ind[i]] + 0.5*self.readout_config['coarse_tiles']['pitch']
                                     for i in range(2)]).T
             tile_coord = (round(float(tile_center[0]), 3),
                           round(float(tile_center[1]), 3))
-            # print (tile_coord)
             
             sample_mask = tile_hash == this_tile_hash
-            # print (sample_mask)
             tile_hit_drift_positions = z_series[sample_mask]
             tile_hit_charges = charge_series[sample_mask]
             coarse_grid_timeseries[tile_coord] = np.array([tile_hit_drift_positions,
                                                            tile_hit_charges]).T
 
-            # print (tile_coord)
-
-        # print (list(coarse_grid_timeseries.values())[0].shape)
-        # print (list(coarse_grid_timeseries.values())[0])
 
         return coarse_grid_timeseries
 
@@ -189,8 +159,6 @@ class GAMPixModel:
             n_pixels_y = int((y_bounds[1] - y_bounds[0])/spacing)
             pixel_volume_edges = (np.linspace(x_bounds[0], x_bounds[1], n_pixels_x+1),
                                   np.linspace(y_bounds[0], y_bounds[1], n_pixels_y+1))
-            pixel_centers = np.array([pixel_volume_edges[i][pixel_ind[:,i]] + 0.5*spacing
-                                      for i in range(2)]).T
             
             z_series = in_cell_positions[:,2]
             charge_series = in_cell_charges
@@ -202,31 +170,15 @@ class GAMPixModel:
                 pixel_center = np.array([pixel_volume_edges[i][this_pixel_ind[i]] + 0.5*spacing
                                          for i in range(2)]).T
                 pixel_coord = (round(float(pixel_center[0]), 3),
-                               round(float(pixel_center[0]), 3))
+                               round(float(pixel_center[1]), 3))
 
                 sample_mask = pixel_hash == this_pixel_hash
 
                 this_hit_drift_positions = z_series[sample_mask]
                 this_hit_charges = charge_series[sample_mask]
-                # fine_pixel_timeseries[pixel_coord] = np.array([drift_position,
-                #                                                charge]).T
                 fine_pixel_timeseries[pixel_coord] = np.array([this_hit_drift_positions,
                                                                this_hit_charges]).T
         
-            # for pixel_center, drift_position, charge in zip(pixel_centers, z_series, charge_series):
-            #     # print (pixel_center)
-            #     # number of rounding digits is potentially problematic 
-            #     pixel_coord = (round(float(pixel_center[0]), 3),
-            #                    round(float(pixel_center[1]), 3))
-            #     if pixel_coord in fine_pixel_timeseries:
-            #         fine_pixel_timeseries[pixel_coord] = np.concatenate((fine_pixel_timeseries[pixel_coord],
-            #                                                              np.array([[drift_position, charge]])),
-            #                                                             axis = 0)
-            #     else:
-            #         fine_pixel_timeseries[pixel_coord] = np.array([[drift_position, charge]])
-
-        # raise ValueError ("REALLY, STOP")
-
         return fine_pixel_timeseries
 
     def pixel_hit_finding(self, track, pixel_timeseries):

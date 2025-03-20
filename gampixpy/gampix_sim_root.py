@@ -28,19 +28,23 @@ def main(args):
     input_parser = input_parsing.RooTrackerParser(args.input_root_file)
     root_track = input_parser.get_sample(args.event_index)
     root_event_meta = input_parser.get_meta(args.event_index)
-    # evd = plotting.EventDisplay(root_track)
 
     detector_model.drift(root_track)
 
-    # evd.init_fig()
-    # evd.plot_drifted_track()
-
     detector_model.readout(root_track)
-    # evd.plot_drifted_track()
-    # evd.plot_coarse_tile_measurement(gampixD_readout_config)
-    # evd.plot_pixel_measurement(readout_config)
-    # evd.plot_raw_track()
-    # evd.show()
+
+    if args.plot_output:
+        evd = plotting.EventDisplay(root_track)
+        evd.init_fig()
+        # evd.plot_drifted_track()
+        evd.plot_drifted_track()
+        # evd.plot_coarse_tile_measurement(readout_config)
+        evd.plot_pixel_measurement(readout_config)
+        # print ([sample.pixel_pos for sample in  root_track.pixel_samples])
+        # evd.plot_raw_track()
+        evd.show()
+
+        evd.save(args.plot_output)
 
     if args.output_file:
         om = output.OutputManager(args.output_file)
@@ -64,6 +68,10 @@ if __name__ == '__main__':
                         type = str,
                         default = "",
                         help = 'output hdf5 file to store coarse tile and pixel measurements')
+    parser.add_argument('--plot_output',
+                        type = str,
+                        default = "",
+                        help = 'file to save output plot')
 
     parser.add_argument('-d', '--detector_config',
                         type = str,
