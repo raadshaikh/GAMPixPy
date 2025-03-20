@@ -124,9 +124,11 @@ class RooTrackerParser (SegmentParser):
         segment_dtype = np.dtype([("x_start", "f4"),
                                   ("y_start", "f4"),
                                   ("z_start", "f4"),
+                                  ("t_start", "f4"),
                                   ("x_end", "f4"),
                                   ("y_end", "f4"),
                                   ("z_end", "f4"),
+                                  ("t_end", "f4"),
                                   ("dE", "f4"),
                                   ("dx", "f4"),
                                   ("dEdx", "f4")],
@@ -138,9 +140,12 @@ class RooTrackerParser (SegmentParser):
                 x_start = segment.GetStart().X()*mm
                 y_start = segment.GetStart().Y()*mm
                 z_start = segment.GetStart().Z()*mm
+                t_start = segment.GetStart().T()*ns
+                
                 x_end = segment.GetStop().X()*mm
                 y_end = segment.GetStop().Y()*mm
                 z_end = segment.GetStop().Z()*mm
+                t_end = segment.GetStop().T()*ns
 
                 x_d = x_end - x_start
                 y_d = y_end - y_start
@@ -153,9 +158,11 @@ class RooTrackerParser (SegmentParser):
                 this_segment_array = np.array([(x_start,
                                                 y_start,
                                                 z_start,
+                                                t_start,
                                                 x_end,
                                                 y_end,
                                                 z_end,
+                                                t_end,
                                                 dE,
                                                 dx,
                                                 dEdx)],
@@ -164,9 +171,12 @@ class RooTrackerParser (SegmentParser):
                                                 segment_array))
 
         charge_per_segment = self.do_recombination(segment_array)
-        charge_points, charge_values = self.do_point_sampling(segment_array, charge_per_segment)
+        charge_points, charge_values, charge_times = self.do_point_sampling(segment_array,
+                                                                            charge_per_segment,
+                                                                            return_time = True,
+                                                                            )
 
-        return Track(charge_points, charge_values)
+        return Track(charge_points, charge_values, charge_times)
 
     def get_G4_meta(self, sample_index):
         primary_vertex = self.event.Primaries[0] # assume only one primary for now
@@ -179,9 +189,9 @@ class RooTrackerParser (SegmentParser):
         assert primary_trajectory.GetParentId() == -1
 
         pdg_code = primary_trajectory.GetPDGCode()
-        mass = particle.Particle.from_pdgid(pdg_code).mass # MeV/c^2
-        energy = primary_trajectory.GetInitialMomentum()[3]
-        momentum = [primary_trajectory.GetInitialMomentum()[i] for i in range(3)]
+        mass = particle.Particle.from_pdgid(pdg_code).mass*MeV
+        energy = primary_trajectory.GetInitialMomentum()[3]*MeV
+        momentum = [primary_trajectory.GetInitialMomentum()[i]*MeV for i in range(3)]
         kinetic_energy = energy - mass
 
         theta = np.arctan2(momentum[1], momentum[0])
