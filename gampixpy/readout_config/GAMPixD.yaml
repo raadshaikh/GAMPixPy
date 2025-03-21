@@ -20,7 +20,7 @@ pixels:
   type: pixels
   pitch: 0.5 # cm
   power_per_pixel: 1.e-3
-  noise: 40
+  noise: 50
   threshold_sigma: 4.0
   z_bin_width: 0.5
   clock_interval: 1.e-6 # s

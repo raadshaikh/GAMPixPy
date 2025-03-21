@@ -17,12 +17,14 @@ class GAMPixModel:
         # do coarse grid binning/time series formation
         coarse_tile_timeseries = self.transverse_tile_binning(track)
         print ("coarse time series built")
+        print ("coarse hit finding...")
         # find hits on coarse grid
         self.coarse_tile_hits = self.tile_hit_finding(track, coarse_tile_timeseries)
 
         print ("simulating fine grid...")
         fine_pixel_timeseries = self.transverse_pixel_binning(track, self.coarse_tile_hits)
         print ("pixel time series built")
+        print ("pixel hit finding...")
         # find hits on fine pixels
         self.fine_pixel_hits = self.pixel_hit_finding(track, fine_pixel_timeseries)
 

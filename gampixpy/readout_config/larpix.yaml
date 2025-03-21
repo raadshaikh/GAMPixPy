@@ -11,6 +11,7 @@ coarse_tiles:
   noise: 0
   signal_fraction: 1
   threshold_sigma: 0
+  clock_interval: 1.e-6 # s
   z_bin_width: 50 # cm
   integration_length: 1
 
@@ -20,5 +21,6 @@ pixels:
   power_per_pixel: 1.e-3
   noise: 1000
   threshold_sigma: 5.0
+  clock_interval: 1.e-6 # s
   z_bin_width: 0.38
   integration_length: 1
