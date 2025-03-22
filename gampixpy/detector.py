@@ -16,25 +16,25 @@ class GAMPixModel:
         if verbose:
             print ("simulating coarse grid...")
         # do coarse grid binning/time series formation
-        coarse_tile_timeseries = self.transverse_tile_binning(track)
+        coarse_tile_timeseries = self.transverse_tile_binning(track, **kwargs)
         if verbose:
             print ("coarse time series built")
             print ("coarse hit finding...")
         # find hits on coarse grid
-        self.coarse_tile_hits = self.tile_hit_finding(track, coarse_tile_timeseries)
+        self.coarse_tile_hits = self.tile_hit_finding(track, coarse_tile_timeseries, **kwargs)
 
         if verbose:
             print ("simulating fine grid...")
-        fine_pixel_timeseries = self.transverse_pixel_binning(track, self.coarse_tile_hits)
+        fine_pixel_timeseries = self.transverse_pixel_binning(track, self.coarse_tile_hits, **kwargs)
         if verbose:
             print ("pixel time series built")
             print ("pixel hit finding...")
         # find hits on fine pixels
-        self.fine_pixel_hits = self.pixel_hit_finding(track, fine_pixel_timeseries)
+        self.fine_pixel_hits = self.pixel_hit_finding(track, fine_pixel_timeseries, **kwargs)
 
         return 
 
-    def transverse_tile_binning(self, track):
+    def transverse_tile_binning(self, track, **kwargs):
         min_tile = np.array([self.readout_config['anode']['x_range'][0],
                              self.readout_config['anode']['y_range'][0],
                              ])
@@ -74,7 +74,7 @@ class GAMPixModel:
 
         return coarse_grid_timeseries
 
-    def tile_hit_finding(self, track, tile_timeseries):
+    def tile_hit_finding(self, track, tile_timeseries, nonoise = False, **kwargs):
         """
         This method of hit finding simply looks for a quantity
         of charge above threshold within a given z-bin
@@ -124,6 +124,8 @@ class GAMPixModel:
                     # TODO: also, get that from physics
                     
                     threshold_crossing_charge = window_charge[hit_index]
+                    if not nonoise:
+                        threshold_crossing_charge += np.random.normal(scale = self.readout_config['coarse_tiles']['noise'])
 
                     inst_charge[:hit_index+hold_length] = 0
 
@@ -137,7 +139,7 @@ class GAMPixModel:
         track.coarse_tiles_samples = hits
         return hits 
 
-    def transverse_pixel_binning(self, track, coarse_tile_hits):
+    def transverse_pixel_binning(self, track, coarse_tile_hits, **kwargs):
         fine_pixel_timeseries = {}
 
         spacing = self.readout_config['pixels']['pitch']
@@ -206,7 +208,7 @@ class GAMPixModel:
                                            
         return fine_pixel_timeseries
 
-    def pixel_hit_finding(self, track, pixel_timeseries):
+    def pixel_hit_finding(self, track, pixel_timeseries, nonoise = False, **kwargs):
         """
         This method of hit finding simply looks for a quantity
         of charge above threshold within a given z-bin
@@ -255,6 +257,9 @@ class GAMPixModel:
                     threshold_crossing_t = arrival_time_bin_edges[:-1][hit_index]
                     threshold_crossing_z = threshold_crossing_t*1.6e5 # is there a better way to do this?
                     threshold_crossing_charge = window_charge[hit_index]
+
+                    if not nonoise:
+                        threshold_crossing_charge += np.random.normal(scale = self.readout_config['pixels']['noise'])
 
                     inst_charge[:hit_index+hold_length] = 0
 
