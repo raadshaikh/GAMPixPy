@@ -33,6 +33,11 @@ def main(args):
 
     detector_model.readout(root_track)
 
+    print (root_track.raw_track['charge'])
+    print (root_track.drifted_track['charge'])
+    print ([sample.coarse_cell_measurement for sample in root_track.coarse_tiles_samples])
+    print ([sample.hit_measurement for sample in root_track.pixel_samples])
+
     if args.plot_output:
         evd = plotting.EventDisplay(root_track)
         evd.init_fig()

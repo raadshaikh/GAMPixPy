@@ -14,7 +14,7 @@ coarse_tiles:
   z_bin_width: 50 # cm
   clock_interval: 1.e-6 # s
   hit_duration: 1.e-4 # s
-  integration_length: 1
+  integration_length: 20
 
 pixels:
   type: pixels
@@ -25,4 +25,4 @@ pixels:
   z_bin_width: 0.5
   clock_interval: 1.e-6 # s
   hit_duration: 3.e-6 # s
-  integration_length: 1
+  integration_length: 3

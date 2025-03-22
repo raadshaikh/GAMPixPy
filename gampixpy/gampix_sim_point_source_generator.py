@@ -51,8 +51,7 @@ def main(args):
         cloud_track = ps_generator.get_sample()
         cloud_meta = ps_generator.get_meta()
 
-        detector_model.drift(cloud_track)
-        detector_model.readout(cloud_track)
+        detector_model.simulate(cloud_track, verbose = False)
 
         if args.output_file:
             om.add_entry(cloud_track, cloud_meta)
