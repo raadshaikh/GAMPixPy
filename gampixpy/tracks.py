@@ -3,10 +3,9 @@ import numpy as np
 from gampixpy.readout_objects import coarse_tile_dtype, pixel_dtype
 
 class Track:
-    def __init__(self, sample_positions, sample_charges, sample_times = None):
-        self.raw_track = {'position': sample_positions,
-                          'charge': sample_charges,
-                          'times': sample_times}
+    def __init__(self, sample_4vec, sample_charges):
+        self.raw_track = {'4vec': sample_4vec,
+                          'charge': sample_charges}
 
         self.drifted_track = {}
 

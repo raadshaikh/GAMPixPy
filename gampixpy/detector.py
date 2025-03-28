@@ -2,6 +2,9 @@ from gampixpy.config import default_detector_params, default_physics_params, def
 from gampixpy.readout_objects import PixelSample, CoarseGridSample
 
 import numpy as np
+import torch
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class GAMPixModel:
     def __init__(self, readout_config = default_readout_params):
@@ -301,7 +304,7 @@ class DetectorModel:
         # anode_z = self.detector_params['anode']['z']
         anode_z = self.readout_params['anode']['z_range'][0]
 
-        input_position = sampled_track.raw_track['position']
+        input_position = sampled_track.raw_track['4vec'][:,:3]
         input_charges = sampled_track.raw_track['charge']
 
         # position is disturbed by diffusion
@@ -321,15 +324,19 @@ class DetectorModel:
 
         # use the nominal drift time to calculate diffusion
         # then, add the appropriate arrival time dispersion later
-        sigma_transverse = np.sqrt(2*self.physics_params['charge_drift']['diffusion_transverse']*drift_time)
-        sigma_longitudinal = np.sqrt(2*self.physics_params['charge_drift']['diffusion_longitudinal']*drift_time)
-        diffusion_sigma = np.array([sigma_transverse,
-                                    sigma_transverse,
-                                    sigma_longitudinal,
-                                    ]).T
+        sigma_transverse = torch.sqrt(2*self.physics_params['charge_drift']['diffusion_transverse']*drift_time)
+        sigma_longitudinal = torch.sqrt(2*self.physics_params['charge_drift']['diffusion_longitudinal']*drift_time)
+        print (sigma_transverse.shape)
+                                        
+        diffusion_sigma = torch.stack((sigma_transverse,
+                                       sigma_transverse,
+                                       sigma_longitudinal,
+                                       )).T
+        print (region_position.shape, diffusion_sigma.shape)
+        input ()
         
-        drifted_positions = np.random.normal(loc = region_position,
-                                             scale = diffusion_sigma*np.ones_like(region_position))
+        drifted_positions = torch.normal(region_position,
+                                         diffusion_sigma*np.ones_like(region_position))
 
         # charge is diminished by attenuation
         drifted_charges = region_charges*np.exp(-drift_time/self.physics_params['charge_drift']['electron_lifetime'])
@@ -337,10 +344,7 @@ class DetectorModel:
         # add dispersion to the arrival of charge due to longitudinal diffusion
         time_dispersion = (drifted_positions[:, 2] - region_position[:, 2])/self.physics_params['charge_drift']['drift_speed'] 
         
-        if np.any(sampled_track.raw_track['times']):
-            arrival_times = drift_time + sampled_track.raw_track['times'][region_mask] + time_dispersion
-        else:
-            arrival_times = drift_time + time_dispersion
+        arrival_times = drift_time + sampled_track.raw_track['4vec'][region_mask,3] + time_dispersion
             
         # might also include a sub-sampling step?
         # in case initial sampling is not fine enough
