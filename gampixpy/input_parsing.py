@@ -173,6 +173,7 @@ class RooTrackerParser (SegmentParser):
         charge_per_segment = self.do_recombination(segment_array)
         charge_points, charge_values, charge_times = self.do_point_sampling(segment_array,
                                                                             charge_per_segment,
+                                                                            # sample_density = 1.e1,
                                                                             return_time = True,
                                                                             )
 

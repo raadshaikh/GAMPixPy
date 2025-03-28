@@ -250,7 +250,7 @@ class GAMPixModel:
                 threshold = self.readout_config['pixels']['noise']*self.readout_config['pixels']['threshold_sigma']
                 threshold_crossing_mask = window_charge > threshold
                 threshold_crossing_mask *= inst_charge > 0
-
+                
                 if np.any(threshold_crossing_mask):
                     hit_index = np.where(threshold_crossing_mask)[0][0]
 
@@ -259,7 +259,10 @@ class GAMPixModel:
                     threshold_crossing_charge = window_charge[hit_index]
 
                     if not nonoise:
-                        threshold_crossing_charge += np.random.normal(scale = self.readout_config['pixels']['noise'])
+                        # add quiescent noise
+                        # threshold_crossing_charge += np.random.normal(scale = self.readout_config['pixels']['noise'])
+                        threshold_crossing_charge += np.random.poisson(lam = self.readout_config['pixels']['noise'],
+                                                                       size = threshold_crossing_charge)
 
                     inst_charge[:hit_index+hold_length] = 0
 

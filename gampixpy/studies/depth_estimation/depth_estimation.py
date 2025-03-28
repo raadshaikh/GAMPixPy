@@ -274,8 +274,8 @@ def point_source_position_estimate(event_pixel_hits,
     
     print (first_guess, point_source_nLLH(first_guess))
 
-    for z in np.linspace(first_guess[2], first_guess[2]+50, 101):
-        print (z, depth_source_nLLH((z, first_guess[3])))
+    # for z in np.linspace(first_guess[2], first_guess[2]+50, 101):
+    #     print (z, depth_source_nLLH((z, first_guess[3])))
         
     # opt_result = opt(depth_source_nLLH,
     #                  (first_guess[2], first_guess[3]),

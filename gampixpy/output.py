@@ -1,8 +1,8 @@
 import h5py
 import numpy as np
 
-from readout_objects import coarse_tile_dtype, pixel_dtype
-from input_parsing import meta_dtype
+from gampixpy.readout_objects import coarse_tile_dtype, pixel_dtype
+from gampixpy.input_parsing import meta_dtype
 
 class OutputManager:
     def __init__(self, output_filename):

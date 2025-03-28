@@ -124,6 +124,7 @@ while n_iter < 4:
 
     print (n_iter, iter_per_epoch, mse_loss.item())
     print ("label", batch_labels, batch_inference)
+    # print ("diff", (batch_labels - batch_inference)/batch_labels)
     print ("diff", (batch_labels - batch_inference)/batch_labels)
         
     cursor += batch_size
