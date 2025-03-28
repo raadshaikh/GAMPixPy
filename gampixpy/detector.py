@@ -14,7 +14,7 @@ class GAMPixModel:
         # apply the electronics response simulation to
         # a track containing a drifted charge sample
 
-        self.clock_start_time = np.min(track.drifted_track['times'])
+        self.clock_start_time = torch.min(track.drifted_track['times'])
 
         if verbose:
             print ("simulating coarse grid...")
@@ -38,42 +38,40 @@ class GAMPixModel:
         return 
 
     def transverse_tile_binning(self, track, **kwargs):
-        min_tile = np.array([self.readout_config['anode']['x_range'][0],
-                             self.readout_config['anode']['y_range'][0],
-                             ])
+        min_tile = torch.tensor([self.readout_config['anode']['x_range'][0],
+                                 self.readout_config['anode']['y_range'][0],
+                                 ])
         spacing = self.readout_config['coarse_tiles']['pitch']
-        tile_ind = np.asarray((track.drifted_track['position'][:,[0, 1]] - min_tile)//spacing, dtype = int)
+        tile_ind = torch.div(track.drifted_track['position'][:,:2] - min_tile, spacing).int()
 
-        inside_anode_mask = (np.min(tile_ind, axis = -1) >= 0) 
+        inside_anode_mask = (torch.min(tile_ind, axis = -1)[0] >= 0) 
         inside_anode_mask *= tile_ind[:, 0] < self.readout_config['n_tiles_x'] 
         inside_anode_mask *= tile_ind[:, 1] < self.readout_config['n_tiles_y']
 
         tile_ind = tile_ind[inside_anode_mask]
-        tile_hash = np.array([hash(tuple(ind)) for ind in tile_ind])
 
         z_series = track.drifted_track['position'][inside_anode_mask,2]
         t_series = track.drifted_track['times'][inside_anode_mask]
         charge_series = track.drifted_track['charge'][inside_anode_mask]
-        
+
         coarse_grid_timeseries = {}
-        unique_tile_hashes, unique_tile_key = np.unique(tile_hash, return_index = True)
-        unique_tile_indices = tile_ind[unique_tile_key]
-        
-        for this_tile_hash, this_tile_ind in zip(unique_tile_hashes, unique_tile_indices):
-            tile_center = np.array([self.readout_config['tile_volume_edges'][i][this_tile_ind[i]] + 0.5*self.readout_config['coarse_tiles']['pitch']
-                                    for i in range(2)]).T
+        unique_tile_indices = torch.unique(tile_ind, dim = 0)
+
+        for this_tile_ind in unique_tile_indices:
+            tile_center = torch.tensor([self.readout_config['tile_volume_edges'][i][this_tile_ind[i]] + 0.5*self.readout_config['coarse_tiles']['pitch']
+                                        for i in range(2)]).T
             tile_coord = (round(float(tile_center[0]), 3),
                           round(float(tile_center[1]), 3))
             
-            sample_mask = tile_hash == this_tile_hash
+            sample_mask = torch.any(tile_ind == this_tile_ind, dim = 1)
+
             tile_hit_drift_positions = z_series[sample_mask]
             tile_hit_arrival_times = t_series[sample_mask]
             tile_hit_charges = charge_series[sample_mask]
 
-            coarse_grid_timeseries[tile_coord] = np.array([tile_hit_arrival_times,
-                                                           tile_hit_drift_positions,
-                                                           tile_hit_charges]).T
-
+            coarse_grid_timeseries[tile_coord] = torch.stack([t_series[sample_mask],
+                                                              z_series[sample_mask],
+                                                              charge_series[sample_mask]]).T
 
         return coarse_grid_timeseries
 
@@ -89,37 +87,44 @@ class GAMPixModel:
         for tile_center, timeseries in tile_timeseries.items():
             # set up the clock cycle boundaries
             # binning using arrival time (allows for asynchronous ionization)
-            last_charge_arrival_time = np.max(timeseries[:,0])
-            n_clock_ticks = int(np.ceil((last_charge_arrival_time - self.clock_start_time)/self.readout_config['coarse_tiles']['clock_interval']))
+            last_charge_arrival_time = torch.max(timeseries[:,0])
+            n_clock_ticks = torch.ceil((last_charge_arrival_time - self.clock_start_time)/self.readout_config['coarse_tiles']['clock_interval']).int()
             # this is the densest possible set of bins
             # making a dense histogram of these is going to be too much data
             # could do a hierarchical search, go from coarse to fine time binning
             # maybe using np.digitize
-            arrival_time_bin_edges = np.linspace(self.clock_start_time,
-                                                 self.clock_start_time + n_clock_ticks*self.readout_config['coarse_tiles']['clock_interval'],
-                                                 n_clock_ticks + 1,
-                                                 )
+            arrival_time_bin_edges = torch.linspace(self.clock_start_time,
+                                                    self.clock_start_time + n_clock_ticks*self.readout_config['coarse_tiles']['clock_interval'],
+                                                    n_clock_ticks + 1,
+                                                    )
 
             # find the charge which falls into each clock bin
-            inst_charge, _ = np.histogram(timeseries[:,0],
-                                          weights = timeseries[:,2],
-                                          bins = arrival_time_bin_edges)
+            inst_charge, _ = torch.histogram(timeseries[:,0],
+                                             weight = timeseries[:,2],
+                                             bins = arrival_time_bin_edges)
             
             hold_length = self.readout_config['coarse_tiles']['integration_length']            
             
             # search along the bins until no more threshold crossings
             no_more_hits = False
             while not no_more_hits:
-                window_charge = np.convolve(inst_charge,
-                                            np.ones(hold_length))
+                # window_charge = np.convolve(inst_charge,
+                #                             np.ones(hold_length))
+                window_charge = torch.conv_tbc(inst_charge[:,None,None],
+                                               torch.ones(hold_length,1,1),
+                                               bias = torch.zeros(1),
+                                               pad = hold_length-1)[:,0,0]
                 window_charge = window_charge[hold_length-1:]
                 
                 threshold = self.readout_config['coarse_tiles']['noise']*self.readout_config['coarse_tiles']['threshold_sigma']
 
+                print ("wind", hold_length, window_charge.shape, inst_charge.shape, threshold)
+                input()
                 threshold_crossing_mask = window_charge > threshold
                 threshold_crossing_mask *= inst_charge > 0
 
                 if np.any(threshold_crossing_mask):
+                    print ("hit")
                     hit_index = np.where(threshold_crossing_mask)[0][0]
                     
                     threshold_crossing_t = arrival_time_bin_edges[:-1][hit_index]
@@ -326,14 +331,11 @@ class DetectorModel:
         # then, add the appropriate arrival time dispersion later
         sigma_transverse = torch.sqrt(2*self.physics_params['charge_drift']['diffusion_transverse']*drift_time)
         sigma_longitudinal = torch.sqrt(2*self.physics_params['charge_drift']['diffusion_longitudinal']*drift_time)
-        print (sigma_transverse.shape)
                                         
         diffusion_sigma = torch.stack((sigma_transverse,
                                        sigma_transverse,
                                        sigma_longitudinal,
                                        )).T
-        print (region_position.shape, diffusion_sigma.shape)
-        input ()
         
         drifted_positions = torch.normal(region_position,
                                          diffusion_sigma*np.ones_like(region_position))

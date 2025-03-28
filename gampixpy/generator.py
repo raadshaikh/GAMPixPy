@@ -1,6 +1,10 @@
 import numpy as np
+import torch
+
 from gampixpy import tracks
 from gampixpy.input_parsing import meta_dtype
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class Generator:
     def __init__(self, *args, **kwargs):
@@ -18,18 +22,21 @@ class PointSource (Generator):
         self.x_init = self.kwargs['x_range'][0] + (self.kwargs['x_range'][1] - self.kwargs['x_range'][0])*np.random.random()
         self.y_init = self.kwargs['y_range'][0] + (self.kwargs['y_range'][1] - self.kwargs['y_range'][0])*np.random.random()
         self.z_init = self.kwargs['z_range'][0] + (self.kwargs['z_range'][1] - self.kwargs['z_range'][0])*np.random.random()
+        self.t_init = self.kwargs['t_range'][0] + (self.kwargs['t_range'][1] - self.kwargs['t_range'][0])*np.random.random()
         self.q_init = self.kwargs['q_range'][0] + (self.kwargs['q_range'][1] - self.kwargs['q_range'][0])*np.random.random()
 
     def get_sample(self):
         self.generate_sample_params()
 
-        charge_points = np.stack(self.n_samples_per_point*[[self.x_init,
-                                                            self.y_init,
-                                                            self.z_init]])
-        charge_values = np.array(self.n_samples_per_point*[self.q_init/self.n_samples_per_point,
-                                                           ])                                 
+        charge_4vec = torch.stack(self.n_samples_per_point*[[self.x_init,
+                                                             self.y_init,
+                                                             self.z_init,
+                                                             self.t_init,
+                                                             ]])
+        charge_values = torch.tensor(self.n_samples_per_point*[self.q_init/self.n_samples_per_point,
+                                                               ])                                 
         
-        return tracks.Track(charge_points, charge_values)
+        return tracks.Track(charge_4vec, charge_values)
 
     def get_meta(self):
         meta_array = np.array([(0, 0,

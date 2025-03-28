@@ -71,15 +71,19 @@ class SegmentParser (InputParser):
     
     def do_point_sampling(self, start_4vec, end_4vec,
                           dx, charge_per_segment,
-                          sample_density = 1.e3):
+                          sample_density = 1.e-1,
+                          sample_normalization = 'charge'):
         # point sampling with a fixed number of samples per length
         # it may be faster to do sampling another way (test in future!)
         #  - sample with fixed amount of charge
         #  - sample with fixed number of samples per segment
 
         segment_interval = end_4vec - start_4vec
-        
-        samples_per_segment = (dx*sample_density).int()
+
+        if sample_normalization == 'charge':
+            samples_per_segment = (charge_per_segment*sample_density).int()
+        elif sample_normalization == 'length':
+            samples_per_segment = (dx*sample_density).int()
 
         sample_start = torch.repeat_interleave(start_4vec, samples_per_segment, dim = 0)
         sample_interval = torch.repeat_interleave(segment_interval, samples_per_segment, dim = 0)
@@ -88,9 +92,9 @@ class SegmentParser (InputParser):
         sample_4vec = sample_start + sample_interval*sample_parametric_distance[:,None]
         
         sample_charges = torch.repeat_interleave(charge_per_segment/samples_per_segment, samples_per_segment)
-        
+
         return sample_4vec, sample_charges
-            
+
 class RooTrackerParser (SegmentParser):
     def open_file_handle(self):
         from ROOT import TFile, TG4Event
@@ -146,7 +150,7 @@ class RooTrackerParser (SegmentParser):
                                                             end_4vec,
                                                             dx, dQ,
                                                             )
-
+        
         return Track(charge_4vec, charge_values)
 
     def get_G4_meta(self, sample_index):
