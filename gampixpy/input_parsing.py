@@ -81,8 +81,10 @@ class SegmentParser (InputParser):
         segment_interval = end_4vec - start_4vec
 
         if sample_normalization == 'charge':
+            # here, sample_density is [samples/unit charge]
             samples_per_segment = (charge_per_segment*sample_density).int()
         elif sample_normalization == 'length':
+            # here, sample_density is [samples/unit length]
             samples_per_segment = (dx*sample_density).int()
 
         sample_start = torch.repeat_interleave(start_4vec, samples_per_segment, dim = 0)

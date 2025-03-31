@@ -118,22 +118,19 @@ class GAMPixModel:
                 
                 threshold = self.readout_config['coarse_tiles']['noise']*self.readout_config['coarse_tiles']['threshold_sigma']
 
-                print ("wind", hold_length, window_charge.shape, inst_charge.shape, threshold)
-                input()
                 threshold_crossing_mask = window_charge > threshold
                 threshold_crossing_mask *= inst_charge > 0
 
-                if np.any(threshold_crossing_mask):
-                    print ("hit")
-                    hit_index = np.where(threshold_crossing_mask)[0][0]
+                if torch.any(threshold_crossing_mask):
+                    hit_index = threshold_crossing_mask.nonzero()[0][0]
                     
                     threshold_crossing_t = arrival_time_bin_edges[:-1][hit_index]
                     threshold_crossing_z = threshold_crossing_t*1.6e5 # is there a better way to do this?
-                    # TODO: also, get that from physics
+                    # TODO: also, get that from physics params
                     
                     threshold_crossing_charge = window_charge[hit_index]
                     if not nonoise:
-                        threshold_crossing_charge += np.random.normal(scale = self.readout_config['coarse_tiles']['noise'])
+                        threshold_crossing_charge += torch.poisson(torch.tensor(self.readout_config['coarse_tiles']['noise']).float())
 
                     inst_charge[:hit_index+hold_length] = 0
 
