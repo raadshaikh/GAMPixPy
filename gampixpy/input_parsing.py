@@ -3,6 +3,7 @@ from gampixpy.config import default_physics_params
 from gampixpy.units import *
 
 import numpy as np
+import torch
 import particle
 
 meta_dtype =  np.dtype([("event id", "u4"),
@@ -33,9 +34,7 @@ class InputParser:
             yield sample_index, self.get_sample(sample_index), self.get_meta(sample_index)
 
 class SegmentParser (InputParser):
-    def do_recombination(self, segments):
-        dE = segments['dE']
-        dEdx = segments['dEdx']
+    def do_recombination(self, dE, dx, dEdx):
         E_field = self.physics_config['charge_drift']['drift_field']
         LAr_density = self.physics_config['material']['density']
 
@@ -46,9 +45,9 @@ class SegmentParser (InputParser):
             box_alpha = self.physics_config['box_model']['box_beta']
 
             csi = box_beta*dEdx/(E_field*LAr_density)
-            recomb = np.max(np.stack([np.zeros_like(dE),
-                                      np.log(box_alpha + csi)/csi]),
-                            axis = 0)
+            recomb = torch.max(torch.stack([torch.zeros_like(dE),
+                                            torch.log(box_alpha + csi)/csi]),
+                               dim = 0)[0]
 
         elif mode == 'birks':
             birks_ab = self.physics_config['birks_model']['birks_ab']
@@ -59,46 +58,43 @@ class SegmentParser (InputParser):
         else:
             raise ValueError("Invalid recombination mode: must be 'physics.BOX' or 'physics.BRIKS'")
 
-        if np.any(np.isnan(recomb)):
+        if torch.any(torch.isnan(recomb)):
             raise RuntimeError("Invalid recombination value")
 
         w_ion = self.physics_config['material']['w']
         charge_yield_per_energy = recomb/w_ion
 
-        n_electrons = segments['dE']*charge_yield_per_energy
+        n_electrons = dE*charge_yield_per_energy
         return n_electrons
     
-    def do_point_sampling(self, segments, charge_per_segment, return_time = False, sample_density = 1.e3):
+    def do_point_sampling(self, start_4vec, end_4vec,
+                          dx, charge_per_segment,
+                          sample_density = 1.e-1,
+                          sample_normalization = 'charge'):
         # point sampling with a fixed number of samples per length
         # it may be faster to do sampling another way (test in future!)
         #  - sample with fixed amount of charge
         #  - sample with fixed number of samples per segment
 
-        start_vec = np.array([segments['x_start'],
-                              segments['y_start'],
-                              segments['z_start']])
-        end_vec = np.array([segments['x_end'],
-                            segments['y_end'],
-                            segments['z_end']])
-        segment_dirs = end_vec - start_vec
+        segment_interval = end_4vec - start_4vec
+
+        if sample_normalization == 'charge':
+            # here, sample_density is [samples/unit charge]
+            samples_per_segment = (charge_per_segment*sample_density).int()
+        elif sample_normalization == 'length':
+            # here, sample_density is [samples/unit length]
+            samples_per_segment = (dx*sample_density).int()
+
+        sample_start = torch.repeat_interleave(start_4vec, samples_per_segment, dim = 0)
+        sample_interval = torch.repeat_interleave(segment_interval, samples_per_segment, dim = 0)
+        sample_parametric_distance = torch.cat(tuple(torch.linspace(0, 1, samples_per_segment[i])
+                                                     for i in range(samples_per_segment.shape[0])))
+        sample_4vec = sample_start + sample_interval*sample_parametric_distance[:,None]
         
-        samples_per_segment = (segments['dx']*sample_density).astype(int)
+        sample_charges = torch.repeat_interleave(charge_per_segment/samples_per_segment, samples_per_segment)
 
-        sample_positions = np.concatenate([(start_vec[:,i,None] + np.linspace(0, 1, samples_per_segment[i])*segment_dirs[:,i,None]).T
-                                           for i in range(len(samples_per_segment))])
+        return sample_4vec, sample_charges
 
-        sample_charges = np.concatenate([samples_per_segment[i]*[charge_per_segment[i]/samples_per_segment[i]]
-                                         for i in range(len(samples_per_segment))])
-
-        if return_time:
-            segment_intervals = segments['t_end'] - segments['t_start']
-            sample_times = np.concatenate([(segments['t_start'][i] + np.linspace(0, 1, samples_per_segment[i])*segment_intervals[i])
-                                           for i in range(len(samples_per_segment))])
-
-            return sample_positions, sample_charges, sample_times
-
-        return sample_positions, sample_charges
-            
 class RooTrackerParser (SegmentParser):
     def open_file_handle(self):
         from ROOT import TFile, TG4Event
@@ -112,72 +108,48 @@ class RooTrackerParser (SegmentParser):
     def generate_sample_order(self, sequential_sampling):
         n_images_per_file = self.inputTree.GetEntriesFast()
         if sequential_sampling:
-            self.sampling_order = np.arange(n_images_per_file)
+            self.sampling_order = torch.arange(n_images_per_file)
         else:
-            self.sampling_order = np.random.choice(n_images_per_file,
-                                                   n_images_per_file,
-                                                   replace = False)
+            self.sampling_order = torch.randperm(n_images_per_file)
 
     def get_G4_sample(self, sample_index):
         self.inputTree.GetEntry(sample_index)
 
-        segment_dtype = np.dtype([("x_start", "f4"),
-                                  ("y_start", "f4"),
-                                  ("z_start", "f4"),
-                                  ("t_start", "f4"),
-                                  ("x_end", "f4"),
-                                  ("y_end", "f4"),
-                                  ("z_end", "f4"),
-                                  ("t_end", "f4"),
-                                  ("dE", "f4"),
-                                  ("dx", "f4"),
-                                  ("dEdx", "f4")],
-                                 align = True)
-        segment_array = np.array([], dtype = segment_dtype)
+        start_4vec = torch.empty((0,4))
+        end_4vec = torch.empty((0,4))
+        dE = torch.empty((0))
 
         for container_name, hit_segments in self.event.SegmentDetectors:
             for segment in hit_segments:
-                x_start = segment.GetStart().X()*mm
-                y_start = segment.GetStart().Y()*mm
-                z_start = segment.GetStart().Z()*mm
-                t_start = segment.GetStart().T()*ns
-                
-                x_end = segment.GetStop().X()*mm
-                y_end = segment.GetStop().Y()*mm
-                z_end = segment.GetStop().Z()*mm
-                t_end = segment.GetStop().T()*ns
 
-                x_d = x_end - x_start
-                y_d = y_end - y_start
-                z_d = z_end - z_start
-                dx = np.sqrt(x_d**2 + y_d**2 + z_d**2)
+                this_start_4vec = torch.tensor([segment.GetStart().X()*mm,
+                                                segment.GetStart().Y()*mm,
+                                                segment.GetStart().Z()*mm,
+                                                segment.GetStart().T()*ns])
+                this_end_4vec = torch.tensor([segment.GetStop().X()*mm,
+                                              segment.GetStop().Y()*mm,
+                                              segment.GetStop().Z()*mm,
+                                              segment.GetStop().T()*ns])
+                this_dE = torch.tensor([segment.GetEnergyDeposit()*MeV])
                 
-                dE = segment.GetEnergyDeposit()*MeV
-                dEdx = dE/dx if dx > 0 else 0
-                
-                this_segment_array = np.array([(x_start,
-                                                y_start,
-                                                z_start,
-                                                t_start,
-                                                x_end,
-                                                y_end,
-                                                z_end,
-                                                t_end,
-                                                dE,
-                                                dx,
-                                                dEdx)],
-                                              dtype = segment_dtype)
-                segment_array = np.concatenate((this_segment_array,
-                                                segment_array))
+                start_4vec = torch.cat((this_start_4vec[None,:],
+                                        start_4vec))
+                end_4vec = torch.cat((this_end_4vec[None,:],
+                                      end_4vec))
+                dE = torch.cat((this_dE,
+                                dE))
 
-        charge_per_segment = self.do_recombination(segment_array)
-        charge_points, charge_values, charge_times = self.do_point_sampling(segment_array,
-                                                                            charge_per_segment,
-                                                                            # sample_density = 1.e1,
-                                                                            return_time = True,
-                                                                            )
+        displacement = start_4vec[:,:3] - end_4vec[:,:3]
+        dx = torch.sum(displacement**2, dim = 1)
+        dEdx = torch.where(dx > 0, dE/dx, 0)
 
-        return Track(charge_points, charge_values, charge_times)
+        dQ = self.do_recombination(dE, dx, dEdx)
+        charge_4vec, charge_values = self.do_point_sampling(start_4vec,
+                                                            end_4vec,
+                                                            dx, dQ,
+                                                            )
+        
+        return Track(charge_4vec, charge_values)
 
     def get_G4_meta(self, sample_index):
         primary_vertex = self.event.Primaries[0] # assume only one primary for now
@@ -223,14 +195,13 @@ class EdepSimParser (SegmentParser):
         self.file_handle = h5py.File(self.input_filename)
 
     def generate_sample_order(self, sequential_sampling):
-        unique_event_ids = np.unique(self.file_handle['trajectories']['eventID'])
+        unique_event_ids = np.unique(self.file_handle['trajectories']['eventID']).astype(np.int32)
+        # unique_event_ids = torch.tensor(unique_event_ids, dtype = torch.int32)
         n_images_per_file = len(unique_event_ids)
         if sequential_sampling:
-            self.sampling_order = unique_event_ids
+            self.sampling_order = torch.tensor(unique_event_ids)
         else:
-            self.sampling_order = np.random.choice(unique_event_ids,
-                                                   n_images_per_file,
-                                                   replace = False)
+            self.sampling_order = torch.tensor(unique_event_ids[torch.randperm(n_images_per_file)])
         
     def get_edepsim_event(self, sample_index):
         segment_mask = self.file_handle['segments']['eventID'] == sample_index
@@ -239,10 +210,28 @@ class EdepSimParser (SegmentParser):
         trajectory_mask = self.file_handle['trajectories']['eventID'] == sample_index
         event_trajectories = self.file_handle['trajectories'][trajectory_mask]
 
-        charge_per_segment = self.do_recombination(event_segments)
-        charge_points, charge_values = self.do_point_sampling(event_segments, charge_per_segment)
+        start_4vec = torch.tensor((event_segments['x_start']*cm,
+                                   event_segments['y_start']*cm,
+                                   event_segments['z_start']*cm,
+                                   event_segments['t_start']*ns,
+                                   )).T
+        end_4vec = torch.tensor((event_segments['x_end']*cm,
+                                 event_segments['y_end']*cm,
+                                 event_segments['z_end']*cm,
+                                 event_segments['t_end']*ns,
+                                 )).T
+        dE = torch.tensor(event_segments['dE']*MeV)
 
-        return Track(charge_points, charge_values)
+        displacement = start_4vec[:,:3] - end_4vec[:,:3]
+        dx = torch.sum(displacement**2, dim = 1)
+        dEdx = torch.where(dx > 0, dE/dx, 0)
+
+        dQ = self.do_recombination(dE, dx, dEdx)
+        charge_4vec, charge_values = self.do_point_sampling(start_4vec,
+                                                            end_4vec,
+                                                            dx, dQ,
+                                                            )
+        return Track(charge_4vec, charge_values)
     
     def get_edepsim_meta(self, sample_index):
         trajectory_mask = self.file_handle['trajectories']['eventID'] == sample_index
@@ -277,6 +266,8 @@ class EdepSimParser (SegmentParser):
         return self.get_edepsim_meta(index)
 
 class MarleyParser (SegmentParser):
+    # BROKEN
+    # revisit this later
     def open_file_handle(self):
         from ROOT import TFile
 
@@ -389,13 +380,11 @@ class MarleyCSVParser (SegmentParser):
 
     def generate_sample_order(self, sequential_sampling):
 
-        unique_event_ids = np.unique(self.data_table['event'])
+        unique_event_ids = np.unique(self.data_table['event']).astype(np.int32)
         if sequential_sampling:
-            self.sampling_order = unique_event_ids
+            self.sampling_order = torch.tensor(unique_event_ids)
         else:
-            self.sampling_order = np.random.choice(unique_event_ids,
-                                                   len(unique_event_ids),
-                                                   replace = False)
+            self.sampling_order = torch.tensor(unique_event_ids[torch.randperm(len(unique_event_ids))])
 
     def get_CSV_sample(self, sample_index):
         event_mask = self.data_table['event'] == sample_index
@@ -413,41 +402,28 @@ class MarleyCSVParser (SegmentParser):
                                   ("dx", "f4"),
                                   ("dEdx", "f4")],
                                  align = True)
-        segment_array = np.empty(event_rows.shape, dtype = segment_dtype)
+
+        start_4vec = torch.tensor((event_rows['startY']*mm,
+                                   event_rows['startZ']*mm,
+                                   event_rows['startX']*mm,
+                                   event_rows['startT']*ns)).T
+        end_4vec = torch.tensor((event_rows['endY']*mm,
+                                 event_rows['endZ']*mm,
+                                 event_rows['endX']*mm,
+                                 event_rows['endT']*ns)).T
         
-        # segment_array['x_start'] = event_rows['startX']*mm
-        # segment_array['y_start'] = event_rows['startY']*mm
-        # segment_array['z_start'] = event_rows['startZ']*mm
-        segment_array['x_start'] = event_rows['startY']*mm
-        segment_array['y_start'] = event_rows['startZ']*mm
-        segment_array['z_start'] = event_rows['startX']*mm
-        segment_array['t_start'] = event_rows['startT']*ns
+        dE = torch.tensor(event_rows['dE']*MeV)
 
-        # segment_array['x_end'] = event_rows['endX']*mm
-        # segment_array['y_end'] = event_rows['endY']*mm
-        # segment_array['z_end'] = event_rows['endZ']*mm
-        segment_array['x_end'] = event_rows['endX']*mm
-        segment_array['y_end'] = event_rows['endY']*mm
-        segment_array['z_end'] = event_rows['endZ']*mm
-        segment_array['t_end'] = event_rows['endT']*ns
+        displacement = start_4vec[:,:3] - end_4vec[:,:3]
+        dx = torch.sum(displacement**2, dim = 1)
+        dEdx = torch.where(dx > 0, dE/dx, 0)
 
-        x_d = event_rows['endX'] - event_rows['startX']
-        y_d = event_rows['endY'] - event_rows['startY']
-        z_d = event_rows['endZ'] - event_rows['startZ']
-        dx = np.sqrt(x_d**2 + y_d**2 + z_d**2)
-        
-        segment_array['dE'] = event_rows['dE']*MeV
-        segment_array['dx'] = dx
-        segment_array['dEdx'] = np.where(dx > 0, event_rows['dE']/dx , 0)
-
-        charge_per_segment = self.do_recombination(segment_array)
-        charge_points, charge_values, charge_times = self.do_point_sampling(segment_array,
-                                                                            charge_per_segment,
-                                                                            return_time = True,
-                                                                            sample_density = 1.e2,
-                                                                            )
-
-        return Track(charge_points, charge_values, charge_times)
+        dQ = self.do_recombination(dE, dx, dEdx)
+        charge_4vec, charge_values = self.do_point_sampling(start_4vec,
+                                                            end_4vec,
+                                                            dx, dQ,
+                                                            )
+        return Track(charge_4vec, charge_values)
 
     def get_CSV_meta(self, sample_index):
         event_mask = self.data_table['event'] == sample_index
@@ -476,6 +452,9 @@ class MarleyCSVParser (SegmentParser):
         return self.get_CSV_meta(index)
 
 class PenelopeParser (InputParser):
+    # BROKEN
+    # revisit this later
+    
     # def __init__(self, *args, **kwargs):
     #     super().__init__(*args, **kwargs)
     

@@ -258,12 +258,7 @@ class EventDisplay:
             # cell_center_z = this_hit.hit_timestamp
             cell_trigger_t = this_hit.hit_timestamp
             cell_measurement = this_hit.hit_measurement
-
-            # plt.scatter(cell_center_xy[0],
-            #             cell_center_xy[1],
-            #             cell_trigger_t,
-            #             alpha = 0)
-
+            
             x_bounds = [cell_center_xy[0] - 0.5*readout_config['pixels']['pitch'],
                         cell_center_xy[0] + 0.5*readout_config['pixels']['pitch']]
             y_bounds = [cell_center_xy[1] - 0.5*readout_config['pixels']['pitch'],
