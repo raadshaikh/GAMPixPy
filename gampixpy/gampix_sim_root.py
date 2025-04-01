@@ -12,7 +12,6 @@ else:
     device = torch.device('cpu')
     print("CUDA is not available, using CPU")
 
-
 def main(args):
 
     # load configs for physics, detector, and readout

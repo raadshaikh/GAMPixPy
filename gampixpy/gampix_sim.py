@@ -1,5 +1,16 @@
 from gampixpy import detector, input_parsing, plotting, config, output
 
+import torch
+
+if torch.cuda.is_available():
+    device = torch.device('cuda')
+    # Set the default device to CUDA
+    torch.set_default_device(device)
+    print(f"Default device set to: {torch.cuda.get_device_name(device)}")
+else:
+    device = torch.device('cpu')
+    print("CUDA is not available, using CPU")
+
 def main(args):
 
     # load configs for physics, detector, and readout
@@ -45,6 +56,8 @@ def main(args):
     # evd.plot_raw_track()
     evd.show()
 
+    evd.save(args.plot_output)
+
     if args.output_file:
         om = output.OutputManager(args.output_file)
         om.add_entry(edepsim_track, edepsim_event_meta)
@@ -67,6 +80,10 @@ if __name__ == '__main__':
                         type = str,
                         default = "",
                         help = 'output hdf5 file to store coarse tile and pixel measurements')
+    parser.add_argument('--plot_output',
+                        type = str,
+                        default = "",
+                        help = 'file to save output plot')
 
     parser.add_argument('-d', '--detector_config',
                         type = str,

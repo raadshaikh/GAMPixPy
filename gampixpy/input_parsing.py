@@ -142,7 +142,7 @@ class RooTrackerParser (SegmentParser):
         displacement = start_4vec[:,:3] - end_4vec[:,:3]
         dx = torch.sum(displacement**2, dim = 1)
         dEdx = torch.where(dx > 0, dE/dx, 0)
-        
+
         dQ = self.do_recombination(dE, dx, dEdx)
         charge_4vec, charge_values = self.do_point_sampling(start_4vec,
                                                             end_4vec,
@@ -195,14 +195,13 @@ class EdepSimParser (SegmentParser):
         self.file_handle = h5py.File(self.input_filename)
 
     def generate_sample_order(self, sequential_sampling):
-        unique_event_ids = np.unique(self.file_handle['trajectories']['eventID'])
+        unique_event_ids = np.unique(self.file_handle['trajectories']['eventID']).astype(np.int32)
+        # unique_event_ids = torch.tensor(unique_event_ids, dtype = torch.int32)
         n_images_per_file = len(unique_event_ids)
         if sequential_sampling:
-            self.sampling_order = unique_event_ids
+            self.sampling_order = torch.tensor(unique_event_ids)
         else:
-            self.sampling_order = np.random.choice(unique_event_ids,
-                                                   n_images_per_file,
-                                                   replace = False)
+            self.sampling_order = unique_event_ids[torch.randperm(n_images_per_file)]
         
     def get_edepsim_event(self, sample_index):
         segment_mask = self.file_handle['segments']['eventID'] == sample_index
@@ -211,10 +210,31 @@ class EdepSimParser (SegmentParser):
         trajectory_mask = self.file_handle['trajectories']['eventID'] == sample_index
         event_trajectories = self.file_handle['trajectories'][trajectory_mask]
 
-        charge_per_segment = self.do_recombination(event_segments)
-        charge_points, charge_values = self.do_point_sampling(event_segments, charge_per_segment)
+        print (event_segments.dtype)
+        
+        start_4vec = torch.tensor((event_segments['x_start'],
+                                   event_segments['y_start'],
+                                   event_segments['z_start'],
+                                   event_segments['t_start'],
+                                   )).T
+        print (start_4vec.shape)
+        end_4vec = torch.tensor((event_segments['x_end'],
+                                 event_segments['y_end'],
+                                 event_segments['z_end'],
+                                 event_segments['t_end'],
+                                 )).T
+        dE = torch.tensor(event_segments['dE'])
 
-        return Track(charge_points, charge_values)
+        displacement = start_4vec[:,:3] - end_4vec[:,:3]
+        dx = torch.sum(displacement**2, dim = 1)
+        dEdx = torch.where(dx > 0, dE/dx, 0)
+
+        dQ = self.do_recombination(dE, dx, dEdx)
+        charge_4vec, charge_values = self.do_point_sampling(start_4vec,
+                                                            end_4vec,
+                                                            dx, dQ,
+                                                            )
+        return Track(charge_4vec, charge_values)
     
     def get_edepsim_meta(self, sample_index):
         trajectory_mask = self.file_handle['trajectories']['eventID'] == sample_index
