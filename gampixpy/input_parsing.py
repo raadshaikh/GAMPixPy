@@ -6,8 +6,6 @@ import numpy as np
 import torch
 import particle
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
 meta_dtype =  np.dtype([("event id", "u4"),
                         ("primary energy", "f4"),
                         ("deposited charge", "f4"),

@@ -1,6 +1,18 @@
 import gampixpy
 from gampixpy import detector, input_parsing, plotting, config, output
 
+import torch
+
+if torch.cuda.is_available():
+    device = torch.device('cuda')
+    # Set the default device to CUDA
+    torch.set_default_device(device)
+    print(f"Default device set to: {torch.cuda.get_device_name(device)}")
+else:
+    device = torch.device('cpu')
+    print("CUDA is not available, using CPU")
+
+
 def main(args):
 
     # load configs for physics, detector, and readout
@@ -33,17 +45,12 @@ def main(args):
 
     detector_model.readout(root_track)
 
-    print (root_track.raw_track['charge'])
-    print (root_track.drifted_track['charge'])
-    print ([sample.coarse_cell_measurement for sample in root_track.coarse_tiles_samples])
-    print ([sample.hit_measurement for sample in root_track.pixel_samples])
-
     if args.plot_output:
         evd = plotting.EventDisplay(root_track)
         evd.init_fig()
+        evd.plot_drifted_track_timeline(alpha = 0)
         # evd.plot_drifted_track()
-        # evd.plot_drifted_track()
-        # evd.plot_coarse_tile_measurement(readout_config)
+        evd.plot_coarse_tile_measurement_timeline(readout_config)
         evd.plot_pixel_measurement_timeline(readout_config)
         # print ([sample.pixel_pos for sample in  root_track.pixel_samples])
         # evd.plot_raw_track()

@@ -4,8 +4,6 @@ import torch
 from gampixpy import tracks
 from gampixpy.input_parsing import meta_dtype
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
 class Generator:
     def __init__(self, *args, **kwargs):
         self.args = args
