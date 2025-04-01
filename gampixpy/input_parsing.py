@@ -45,9 +45,9 @@ class SegmentParser (InputParser):
             box_alpha = self.physics_config['box_model']['box_beta']
 
             csi = box_beta*dEdx/(E_field*LAr_density)
-            recomb = np.max(np.stack([np.zeros_like(dE),
-                                      np.log(box_alpha + csi)/csi]),
-                            axis = 0)
+            recomb = torch.max(torch.stack([torch.zeros_like(dE),
+                                            torch.log(box_alpha + csi)/csi]),
+                               dim = 0)[0]
 
         elif mode == 'birks':
             birks_ab = self.physics_config['birks_model']['birks_ab']
@@ -58,7 +58,7 @@ class SegmentParser (InputParser):
         else:
             raise ValueError("Invalid recombination mode: must be 'physics.BOX' or 'physics.BRIKS'")
 
-        if np.any(np.isnan(recomb)):
+        if torch.any(torch.isnan(recomb)):
             raise RuntimeError("Invalid recombination value")
 
         w_ion = self.physics_config['material']['w']
