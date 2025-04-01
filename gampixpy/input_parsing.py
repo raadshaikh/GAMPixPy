@@ -108,11 +108,9 @@ class RooTrackerParser (SegmentParser):
     def generate_sample_order(self, sequential_sampling):
         n_images_per_file = self.inputTree.GetEntriesFast()
         if sequential_sampling:
-            self.sampling_order = np.arange(n_images_per_file)
+            self.sampling_order = torch.arange(n_images_per_file)
         else:
-            self.sampling_order = np.random.choice(n_images_per_file,
-                                                   n_images_per_file,
-                                                   replace = False)
+            self.sampling_order = torch.randperm(n_images_per_file)
 
     def get_G4_sample(self, sample_index):
         self.inputTree.GetEntry(sample_index)
