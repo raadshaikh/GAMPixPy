@@ -201,7 +201,7 @@ class EdepSimParser (SegmentParser):
         if sequential_sampling:
             self.sampling_order = torch.tensor(unique_event_ids)
         else:
-            self.sampling_order = unique_event_ids[torch.randperm(n_images_per_file)]
+            self.sampling_order = torch.tensor(unique_event_ids[torch.randperm(n_images_per_file)])
         
     def get_edepsim_event(self, sample_index):
         segment_mask = self.file_handle['segments']['eventID'] == sample_index
@@ -210,20 +210,17 @@ class EdepSimParser (SegmentParser):
         trajectory_mask = self.file_handle['trajectories']['eventID'] == sample_index
         event_trajectories = self.file_handle['trajectories'][trajectory_mask]
 
-        print (event_segments.dtype)
-        
-        start_4vec = torch.tensor((event_segments['x_start'],
-                                   event_segments['y_start'],
-                                   event_segments['z_start'],
-                                   event_segments['t_start'],
+        start_4vec = torch.tensor((event_segments['x_start']*cm,
+                                   event_segments['y_start']*cm,
+                                   event_segments['z_start']*cm,
+                                   event_segments['t_start']*ns,
                                    )).T
-        print (start_4vec.shape)
-        end_4vec = torch.tensor((event_segments['x_end'],
-                                 event_segments['y_end'],
-                                 event_segments['z_end'],
-                                 event_segments['t_end'],
+        end_4vec = torch.tensor((event_segments['x_end']*cm,
+                                 event_segments['y_end']*cm,
+                                 event_segments['z_end']*cm,
+                                 event_segments['t_end']*ns,
                                  )).T
-        dE = torch.tensor(event_segments['dE'])
+        dE = torch.tensor(event_segments['dE']*MeV)
 
         displacement = start_4vec[:,:3] - end_4vec[:,:3]
         dx = torch.sum(displacement**2, dim = 1)
@@ -269,6 +266,8 @@ class EdepSimParser (SegmentParser):
         return self.get_edepsim_meta(index)
 
 class MarleyParser (SegmentParser):
+    # BROKEN
+    # revisit this later
     def open_file_handle(self):
         from ROOT import TFile
 
@@ -381,13 +380,11 @@ class MarleyCSVParser (SegmentParser):
 
     def generate_sample_order(self, sequential_sampling):
 
-        unique_event_ids = np.unique(self.data_table['event'])
+        unique_event_ids = np.unique(self.data_table['event']).astype(np.int32)
         if sequential_sampling:
-            self.sampling_order = unique_event_ids
+            self.sampling_order = torch.tensor(unique_event_ids)
         else:
-            self.sampling_order = np.random.choice(unique_event_ids,
-                                                   len(unique_event_ids),
-                                                   replace = False)
+            self.sampling_order = torch.tensor(unique_event_ids[torch.randperm(len(unique_event_ids))])
 
     def get_CSV_sample(self, sample_index):
         event_mask = self.data_table['event'] == sample_index
@@ -405,41 +402,28 @@ class MarleyCSVParser (SegmentParser):
                                   ("dx", "f4"),
                                   ("dEdx", "f4")],
                                  align = True)
-        segment_array = np.empty(event_rows.shape, dtype = segment_dtype)
+
+        start_4vec = torch.tensor((event_rows['startY']*mm,
+                                   event_rows['startZ']*mm,
+                                   event_rows['startX']*mm,
+                                   event_rows['startT']*ns)).T
+        end_4vec = torch.tensor((event_rows['endY']*mm,
+                                 event_rows['endZ']*mm,
+                                 event_rows['endX']*mm,
+                                 event_rows['endT']*ns)).T
         
-        # segment_array['x_start'] = event_rows['startX']*mm
-        # segment_array['y_start'] = event_rows['startY']*mm
-        # segment_array['z_start'] = event_rows['startZ']*mm
-        segment_array['x_start'] = event_rows['startY']*mm
-        segment_array['y_start'] = event_rows['startZ']*mm
-        segment_array['z_start'] = event_rows['startX']*mm
-        segment_array['t_start'] = event_rows['startT']*ns
+        dE = torch.tensor(event_rows['dE']*MeV)
 
-        # segment_array['x_end'] = event_rows['endX']*mm
-        # segment_array['y_end'] = event_rows['endY']*mm
-        # segment_array['z_end'] = event_rows['endZ']*mm
-        segment_array['x_end'] = event_rows['endX']*mm
-        segment_array['y_end'] = event_rows['endY']*mm
-        segment_array['z_end'] = event_rows['endZ']*mm
-        segment_array['t_end'] = event_rows['endT']*ns
+        displacement = start_4vec[:,:3] - end_4vec[:,:3]
+        dx = torch.sum(displacement**2, dim = 1)
+        dEdx = torch.where(dx > 0, dE/dx, 0)
 
-        x_d = event_rows['endX'] - event_rows['startX']
-        y_d = event_rows['endY'] - event_rows['startY']
-        z_d = event_rows['endZ'] - event_rows['startZ']
-        dx = np.sqrt(x_d**2 + y_d**2 + z_d**2)
-        
-        segment_array['dE'] = event_rows['dE']*MeV
-        segment_array['dx'] = dx
-        segment_array['dEdx'] = np.where(dx > 0, event_rows['dE']/dx , 0)
-
-        charge_per_segment = self.do_recombination(segment_array)
-        charge_points, charge_values, charge_times = self.do_point_sampling(segment_array,
-                                                                            charge_per_segment,
-                                                                            return_time = True,
-                                                                            sample_density = 1.e2,
-                                                                            )
-
-        return Track(charge_points, charge_values, charge_times)
+        dQ = self.do_recombination(dE, dx, dEdx)
+        charge_4vec, charge_values = self.do_point_sampling(start_4vec,
+                                                            end_4vec,
+                                                            dx, dQ,
+                                                            )
+        return Track(charge_4vec, charge_values)
 
     def get_CSV_meta(self, sample_index):
         event_mask = self.data_table['event'] == sample_index
@@ -468,6 +452,9 @@ class MarleyCSVParser (SegmentParser):
         return self.get_CSV_meta(index)
 
 class PenelopeParser (InputParser):
+    # BROKEN
+    # revisit this later
+    
     # def __init__(self, *args, **kwargs):
     #     super().__init__(*args, **kwargs)
     

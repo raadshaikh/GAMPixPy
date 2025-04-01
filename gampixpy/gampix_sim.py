@@ -37,16 +37,14 @@ def main(args):
 
     input_parser = input_parsing.EdepSimParser(args.input_edepsim_file)
     edepsim_track = input_parser.get_sample(args.event_index)
-    print ("calling get_meta")
     edepsim_event_meta = input_parser.get_meta(args.event_index)
-    print ("post call get_meta")
     evd = plotting.EventDisplay(edepsim_track)
     # print (edepsim_track.raw_track)
 
     detector_model.drift(edepsim_track)
     # print (edepsim_track.drifted_track)
 
-    # evd.init_fig()
+    evd.init_fig()
     # evd.plot_drifted_track()
 
     detector_model.readout(edepsim_track)
