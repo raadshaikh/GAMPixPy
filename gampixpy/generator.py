@@ -65,24 +65,59 @@ class LineSource (Generator):
         self.phi = np.arccos(1 - 2*np.random.random())
 
         self.length = self.kwargs['length_range'][0] + (self.kwargs['length_range'][1] - self.kwargs['length_range'][0])*np.random.random()
+
+    def do_point_sampling(self, start_4vec, end_4vec,
+                          dx, charge_per_segment,
+                          sample_density = 1.e-1,
+                          sample_normalization = 'charge'):
+        # point sampling with a fixed number of samples per length
+        # it may be faster to do sampling another way (test in future!)
+        #  - sample with fixed amount of charge
+        #  - sample with fixed number of samples per segment
+
+        segment_interval = end_4vec - start_4vec
+
+        if sample_normalization == 'charge':
+            # here, sample_density is [samples/unit charge]
+            samples_per_segment = (charge_per_segment*sample_density).int()
+        elif sample_normalization == 'length':
+            # here, sample_density is [samples/unit length]
+            samples_per_segment = (dx*sample_density).int()
+
+        sample_start = torch.repeat_interleave(start_4vec, samples_per_segment, dim = 0)
+        sample_interval = torch.repeat_interleave(segment_interval, samples_per_segment, dim = 0)
+        sample_parametric_distance = torch.cat(tuple(torch.linspace(0, 1, samples_per_segment[i])
+                                                     for i in range(samples_per_segment.shape[0])))
+        sample_4vec = sample_start + sample_interval*sample_parametric_distance[:,None]
+        
+        sample_charges = torch.repeat_interleave(charge_per_segment/samples_per_segment, samples_per_segment)
+
+        return sample_4vec, sample_charges
         
     def get_sample(self):
         self.generate_sample_params()
 
-        pos_vec = np.array([self.x_init,
-                            self.y_init,
-                            self.z_init])
-        dir_vec = np.array([np.cos(self.theta)*np.sin(self.phi),
-                            np.sin(self.theta)*np.sin(self.phi),
-                            np.cos(self.phi),
-                            ])
-        
-        charge_points = pos_vec + np.linspace(0, 1, self.n_samples_per_segment)[:,None]*dir_vec*self.length
-        # uniform charge profile (subject to change?)
-        charge_values = np.array(self.n_samples_per_segment*[self.q/self.n_samples_per_segment,
-                                                           ])                                 
-        
-        return tracks.Track(charge_points, charge_values)
+        start_4vec = torch.tensor((self.x_init,
+                                   self.y_init,
+                                   self.z_init,
+                                   0,
+                                   ))
+        dir_4vec = np.array([np.cos(self.theta)*np.sin(self.phi),
+                             np.sin(self.theta)*np.sin(self.phi),
+                             np.cos(self.phi),
+                             0,
+                             ])
+        end_4vec = start_4vec + dir_4vec*self.length
+
+        displacement = start_4vec[:,:3] - end_4vec[:,:3]
+        dx = torch.sum(displacement**2, dim = 1)
+        dQ = self.q/self.n_samples_per_segment
+        charge_4vec, charge_values = self.do_point_sampling(start_4vec,
+                                                            end_4vec,
+                                                            dx, dQ,
+                                                            )
+       
+        return tracks.Track(charge_4vec, charge_values)
 
     def get_meta(self):
         meta_array = np.array([(0, 0,
