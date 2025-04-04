@@ -4,7 +4,7 @@ from gampixpy.readout_objects import PixelSample, CoarseGridSample
 import numpy as np
 import torch
 
-class GAMPixModel:
+class ReadoutModel:
     def __init__(self, readout_config = default_readout_params):
         self.readout_config = readout_config
 
@@ -140,61 +140,7 @@ class GAMPixModel:
             coarse_grid_timeseries[tile_coord] = tile_current_series
 
         return coarse_grid_timeseries
-
-    def tile_hit_finding(self, track, tile_timeseries, nonoise = False, **kwargs):
-        """
-        This method of hit finding simply looks for a quantity
-        of charge above threshold within a given z-bin
-        (corresponding to a clock_period*integration_length)
-        """
-        # TODO: fix logic for integration_length > 1
-        hits = []
-        
-        for tile_center, timeseries in tile_timeseries.items():
-            time_ticks, interval_charge = timeseries
-            
-            hold_length = self.readout_config['coarse_tiles']['integration_length']            
-            
-            # search along the bins until no more threshold crossings
-            no_more_hits = False
-            while not no_more_hits:
-                # window_charge = np.convolve(interval_charge,
-                #                             np.ones(hold_length))
-                window_charge = torch.conv_tbc(interval_charge[:,None,None],
-                                               torch.ones(hold_length,1,1),
-                                               bias = torch.zeros(1),
-                                               pad = hold_length-1)[:,0,0]
-                window_charge = window_charge[hold_length-1:]
-                
-                threshold = self.readout_config['coarse_tiles']['noise']*self.readout_config['coarse_tiles']['threshold_sigma']
-
-                threshold_crossing_mask = window_charge > threshold
-                threshold_crossing_mask *= interval_charge > 0
-
-                if torch.any(threshold_crossing_mask):
-                    hit_index = threshold_crossing_mask.nonzero()[0][0]
-                    
-                    threshold_crossing_t = time_ticks[hit_index]
-                    threshold_crossing_z = threshold_crossing_t*1.6e5 # is there a better way to do this?
-                    # TODO: also, get that from physics params
-                    
-                    threshold_crossing_charge = window_charge[hit_index]
-                    if not nonoise:
-                        threshold_crossing_charge += torch.poisson(torch.tensor(self.readout_config['coarse_tiles']['noise']).float())
-
-                    interval_charge[:hit_index+hold_length] = 0
-
-                    hits.append(CoarseGridSample(tile_center,
-                                                 threshold_crossing_t.item(),
-                                                 threshold_crossing_z.item(),
-                                                 threshold_crossing_charge.item()))
-                else:
-                    no_more_hits = True
-
-        track.coarse_tiles_samples = hits
-        return hits 
-
-    def point_sample_pixel_current(self, pixel_coord, track, sample_mask):
+        def point_sample_pixel_current(self, pixel_coord, track, sample_mask):
         """
         return a sparse timeseries for each input position
         positions are relative to the pixel center
@@ -328,7 +274,168 @@ class GAMPixModel:
                                   cell_trigger_t)] = pixel_current_series
                                            
         return pixel_timeseries
-    
+
+class GAMPixModel (ReadoutModel):
+    def tile_hit_finding(self, track, tile_timeseries, nonoise = False, **kwargs):
+        """
+        This method of hit finding simply looks for a quantity
+        of charge above threshold within a given z-bin
+        (corresponding to a clock_period*integration_length)
+        """
+        # TODO: fix logic for integration_length > 1
+        hits = []
+        
+        for tile_center, timeseries in tile_timeseries.items():
+            time_ticks, interval_charge = timeseries
+            
+            hold_length = self.readout_config['coarse_tiles']['integration_length']            
+            
+            # search along the bins until no more threshold crossings
+            no_more_hits = False
+            while not no_more_hits:
+                # window_charge = np.convolve(interval_charge,
+                #                             np.ones(hold_length))
+                window_charge = torch.conv_tbc(interval_charge[:,None,None],
+                                               torch.ones(hold_length,1,1),
+                                               bias = torch.zeros(1),
+                                               pad = hold_length-1)[:,0,0]
+                window_charge = window_charge[hold_length-1:]
+                
+                threshold = self.readout_config['coarse_tiles']['noise']*self.readout_config['coarse_tiles']['threshold_sigma']
+
+                threshold_crossing_mask = window_charge > threshold
+                threshold_crossing_mask *= interval_charge > 0
+
+                if torch.any(threshold_crossing_mask):
+                    hit_index = threshold_crossing_mask.nonzero()[0][0]
+                    
+                    threshold_crossing_t = time_ticks[hit_index]
+                    threshold_crossing_z = threshold_crossing_t*1.6e5 # is there a better way to do this?
+                    # TODO: also, get that from physics params
+                    
+                    threshold_crossing_charge = window_charge[hit_index]
+                    if not nonoise:
+                        threshold_crossing_charge += torch.poisson(torch.tensor(self.readout_config['coarse_tiles']['noise']).float())
+
+                    interval_charge[:hit_index+hold_length] = 0
+
+                    hits.append(CoarseGridSample(tile_center,
+                                                 threshold_crossing_t.item(),
+                                                 threshold_crossing_z.item(),
+                                                 threshold_crossing_charge.item()))
+                else:
+                    no_more_hits = True
+
+        track.coarse_tiles_samples = hits
+        return hits 
+
+    def pixel_hit_finding(self, track, pixel_timeseries, nonoise = False, **kwargs):
+        """
+        This method of hit finding simply looks for a quantity
+        of charge above threshold within a given z-bin
+        (corresponding to a clock_period*integration_length)
+        """
+        hits = []
+        
+        for pixel_key, timeseries in pixel_timeseries.items():
+            pixel_center = (pixel_key[0], pixel_key[1])
+            cell_trigger_t = pixel_key[2]
+
+            time_ticks, interval_charge = timeseries
+
+            hold_length = self.readout_config['pixels']['integration_length']            
+
+            # search along the bins until no more threshold crossings
+            no_hits = False
+            while not no_hits:
+                window_charge = torch.conv_tbc(interval_charge[:,None,None],
+                                               torch.ones(hold_length,1,1),
+                                               bias = torch.zeros(1),
+                                               pad = hold_length-1)[:,0,0]
+                window_charge = window_charge[hold_length-1:]
+
+                threshold = self.readout_config['pixels']['noise']*self.readout_config['pixels']['threshold_sigma']
+                threshold_crossing_mask = window_charge > threshold
+                threshold_crossing_mask *= interval_charge > 0
+                
+                if torch.any(threshold_crossing_mask):
+                    hit_index = threshold_crossing_mask.nonzero()[0][0]
+
+                    threshold_crossing_t = time_ticks[hit_index]
+                    threshold_crossing_z = threshold_crossing_t*1.6e5 # is there a better way to do this?
+                    threshold_crossing_charge = window_charge[hit_index]
+
+                    if not nonoise:
+                        # add quiescent noise
+                        # threshold_crossing_charge += np.random.normal(scale = self.readout_config['pixels']['noise'])
+                        threshold_crossing_charge += torch.poisson(torch.tensor(self.readout_config['pixels']['noise']).float())
+
+                    interval_charge[:hit_index+hold_length] = 0
+
+                    hits.append(PixelSample(pixel_center,
+                                            threshold_crossing_t.item(),
+                                            threshold_crossing_z.item(),
+                                            threshold_crossing_charge.item()))
+                else:
+                    no_hits = True
+
+        track.pixel_samples = hits
+        return hits 
+
+class LArPixModel (ReadoutModel):
+    def tile_hit_finding(self, track, tile_timeseries, nonoise = False, **kwargs):
+        """
+        This method of hit finding simply looks for a quantity
+        of charge above threshold within a given z-bin
+        (corresponding to a clock_period*integration_length)
+        """
+        # TODO: fix logic for integration_length > 1
+        hits = []
+        
+        for tile_center, timeseries in tile_timeseries.items():
+            time_ticks, interval_charge = timeseries
+            
+            hold_length = self.readout_config['coarse_tiles']['integration_length']            
+            
+            # search along the bins until no more threshold crossings
+            no_more_hits = False
+            while not no_more_hits:
+                # window_charge = np.convolve(interval_charge,
+                #                             np.ones(hold_length))
+                window_charge = torch.conv_tbc(interval_charge[:,None,None],
+                                               torch.ones(hold_length,1,1),
+                                               bias = torch.zeros(1),
+                                               pad = hold_length-1)[:,0,0]
+                window_charge = window_charge[hold_length-1:]
+                
+                threshold = self.readout_config['coarse_tiles']['noise']*self.readout_config['coarse_tiles']['threshold_sigma']
+
+                threshold_crossing_mask = window_charge > threshold
+                threshold_crossing_mask *= interval_charge > 0
+
+                if torch.any(threshold_crossing_mask):
+                    hit_index = threshold_crossing_mask.nonzero()[0][0]
+                    
+                    threshold_crossing_t = time_ticks[hit_index]
+                    threshold_crossing_z = threshold_crossing_t*1.6e5 # is there a better way to do this?
+                    # TODO: also, get that from physics params
+                    
+                    threshold_crossing_charge = window_charge[hit_index]
+                    if not nonoise:
+                        threshold_crossing_charge += torch.poisson(torch.tensor(self.readout_config['coarse_tiles']['noise']).float())
+
+                    interval_charge[:hit_index+hold_length] = 0
+
+                    hits.append(CoarseGridSample(tile_center,
+                                                 threshold_crossing_t.item(),
+                                                 threshold_crossing_z.item(),
+                                                 threshold_crossing_charge.item()))
+                else:
+                    no_more_hits = True
+
+        track.coarse_tiles_samples = hits
+        return hits 
+
     def pixel_hit_finding(self, track, pixel_timeseries, nonoise = False, **kwargs):
         """
         This method of hit finding simply looks for a quantity
