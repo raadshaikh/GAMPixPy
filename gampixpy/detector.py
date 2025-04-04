@@ -140,7 +140,8 @@ class ReadoutModel:
             coarse_grid_timeseries[tile_coord] = tile_current_series
 
         return coarse_grid_timeseries
-        def point_sample_pixel_current(self, pixel_coord, track, sample_mask):
+
+    def point_sample_pixel_current(self, pixel_coord, track, sample_mask):
         """
         return a sparse timeseries for each input position
         positions are relative to the pixel center
