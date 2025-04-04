@@ -1,0 +1,26 @@
+anode:
+  x_range: [-10000, 10000]
+  y_range: [-10000, 10000]
+  z_range: [0, 1000]
+
+coarse_tiles:
+  type: coarse_tiles
+  pitch: 100
+  gap: 0.01
+  power_per_tile: 1e-3
+  noise: 10
+  signal_fraction: 1
+  threshold_sigma: 1.0
+  z_bin_width: 80
+  clock_interval: 1.e-5
+  integration_length: 50
+
+pixels:
+  type: pixels
+  pitch: 20
+  power_per_pixel: 1.e-3
+  noise: 10
+  threshold_sigma: 1.0
+  z_bin_width: 2
+  clock_interval: 1.e-6
+  integration_length: 100
