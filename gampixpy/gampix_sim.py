@@ -48,9 +48,9 @@ def main(args):
     # evd.plot_drifted_track()
 
     detector_model.readout(edepsim_track)
-    evd.plot_drifted_track()
-    # evd.plot_coarse_tile_measurement(gampixD_readout_config)
-    evd.plot_pixel_measurement(readout_config)
+    evd.plot_drifted_track_timeline(alpha = 0)
+    evd.plot_coarse_tile_measurement_timeline(readout_config)
+    evd.plot_pixel_measurement_timeline(readout_config)
     # evd.plot_raw_track()
     evd.show()
 
