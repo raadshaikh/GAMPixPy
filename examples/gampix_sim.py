@@ -1,4 +1,3 @@
-import gampixpy
 from gampixpy import detector, input_parsing, plotting, config, output
 
 import torch
@@ -36,28 +35,44 @@ def main(args):
                                             readout_params = readout_config,
                                             )
 
-    input_parser = input_parsing.MarleyParser(args.input_root_file)
-    root_track = input_parser.get_sample(args.event_index)
-    root_event_meta = input_parser.get_meta(args.event_index)
-    # evd = plotting.EventDisplay(root_track)
+    # choose the correct input parser using the provided args
+    # default value for `args.input_format` is 'edepsim'
+    # so this will create an EdepSimParser object and expect hdf5 input
+    input_parser = input_parsing.parser_dict[args.input_format](args.input_file)
 
-    detector_model.drift(root_track)
+    event_data = input_parser.get_sample(args.event_index)
+    event_meta = input_parser.get_meta(args.event_index)
 
-    # evd.init_fig()
+    # call the detector sim in two steps:
+    detector_model.drift(event_data) # generates drifted_track attribute
+    detector_model.readout(event_data) # generates pixel_samples and coarse_tile_samples
+
+    # # call the detector sim in one step:
+    # detector_model.simulated(event_data)
+
+    # inspect the simulation products
+    # print (event_data.raw_track) # track after recombination and point sampling
+    # print (event_data.drifted_track) # track after drifting (diffusion, attenuation)
+
+    # make the event display
+    evd = plotting.EventDisplay(event_data)
+
+    # evd.plot_raw_track() 
     # evd.plot_drifted_track()
 
-    detector_model.readout(root_track)
-    # evd.plot_drifted_track()
-    # evd.plot_coarse_tile_measurement(gampixD_readout_config)
-    # evd.plot_pixel_measurement(readout_config)
-    # evd.plot_raw_track()
-    # evd.show()
+    # methods where the z-axis is readout time
+    evd.plot_drifted_track_timeline()
+    # evd.plot_drifted_track_timeline(alpha = 0) # can also pass kwargs to plt.scatter
+    evd.plot_coarse_tile_measurement_timeline(readout_config) # plot tile hits
+    evd.plot_pixel_measurement_timeline(readout_config) # plot pixel hits
+    evd.show()
+
     evd.save(args.plot_output)
 
+    # save the simulation products to an hdf5 file
     if args.output_file:
         om = output.OutputManager(args.output_file)
-        om.add_entry(root_track, root_event_meta)
-        # om.add_track(root_track)
+        om.add_entry(event_data, event_meta)
 
     return
 
@@ -65,9 +80,13 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('input_root_file',
+    parser.add_argument('input_file',
                         type = str,
                         help = 'input file from which to read and simulate an event')
+    parser.add_argument('-i', '--input_format',
+                        type = str,
+                        default = 'edepsim',
+                        help = 'input file format.  Must be one of {root, edepsim, marley}')
     parser.add_argument('-e', '--event_index',
                         type = int,
                         default = 5,

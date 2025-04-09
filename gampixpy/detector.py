@@ -14,7 +14,13 @@ class ReadoutModel:
 
         # time of first charge arrival
         # this is the start point for coarse current building
-        self.clock_start_time = torch.min(track.drifted_track['times'])
+        try:
+            self.clock_start_time = torch.min(track.drifted_track['times'])
+        except RuntimeError:
+            print ("Encountered empty event!")
+            message = """This is most often because the event lies totally outside of the specified detector volume"""
+            print (message)
+            print ("skipping...")
 
         if verbose:
             print ("simulating coarse grid...")
@@ -347,15 +353,12 @@ class GAMPixModel (ReadoutModel):
             cell_trigger_t = pixel_key[2]
 
             time_ticks, interval_charge = timeseries
-            print (time_ticks)
-            print (interval_charge)
             
             discrim_charge = torch.sum(interval_charge)+torch.poisson(torch.tensor(self.readout_config['pixels']['noise']).float())
             threshold = self.readout_config['pixels']['noise']*self.readout_config['pixels']['threshold_sigma']
             if discrim_charge > threshold:
                 measured_charge = interval_charge + torch.poisson(self.readout_config['pixels']['noise']*torch.ones_like(interval_charge))
-                print ("wow", measured_charge)
-
+                
                 for this_timestamp, this_measured_charge in zip(time_ticks, measured_charge):
                     this_z = this_timestamp*1.6e5
                     hits.append(PixelSample(pixel_center,
@@ -484,6 +487,7 @@ class DetectorModel:
         self.physics_params = physics_params
         self.readout_params = readout_params
         self.readout_model = GAMPixModel(readout_params)
+        # self.readout_model = LArPixModel(readout_params)
  
     def simulate(self, track, **kwargs):
         self.drift(track, **kwargs)

@@ -1,6 +1,16 @@
 from gampixpy import detector, generator, input_parsing, plotting, config, output
 
 import tqdm
+import torch
+
+if torch.cuda.is_available():
+    device = torch.device('cuda')
+    # Set the default device to CUDA
+    torch.set_default_device(device)
+    print(f"Default device set to: {torch.cuda.get_device_name(device)}")
+else:
+    device = torch.device('cpu')
+    print("CUDA is not available, using CPU")
 
 def main(args):
 
@@ -38,11 +48,15 @@ def main(args):
     q_range = args.q_range.split(',')
     q_range = [float(q_range[0]), float(q_range[1])]
 
-    ps_generator = generator.PointSource(x_range = x_range,
-                                         y_range = y_range,
-                                         z_range = z_range,
-                                         q_range = q_range,
-                                         )
+    l_range = args.l_range.split(',')
+    l_range = [float(l_range[0]), float(l_range[1])]
+
+    ps_generator = generator.LineSource(x_range = x_range,
+                                        y_range = y_range,
+                                        z_range = z_range,
+                                        q_range = q_range,
+                                        length_range = l_range,
+                                        )
 
     if args.output_file:
         om = output.OutputManager(args.output_file)
@@ -51,7 +65,8 @@ def main(args):
         cloud_track = ps_generator.get_sample()
         cloud_meta = ps_generator.get_meta()
 
-        detector_model.simulate(cloud_track, verbose = False)
+        detector_model.drift(cloud_track)
+        detector_model.readout(cloud_track)
 
         if args.output_file:
             om.add_entry(cloud_track, cloud_meta)
@@ -100,6 +115,10 @@ if __name__ == '__main__':
                         type = str,
                         default = "100,100000",
                         help = 'min,max q values over which to generate point sources (e.g. -2,4)')
+    parser.add_argument('-l', '--l_range',
+                        type = str,
+                        default = "0,5",
+                        help = 'min,max length values over which to generate point sources (e.g. 0,5)')
     
 
     args = parser.parse_args()

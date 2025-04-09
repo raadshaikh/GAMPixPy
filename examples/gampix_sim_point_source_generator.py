@@ -1,5 +1,6 @@
-from gampixpy import detector, input_parsing, plotting, config, output
+from gampixpy import detector, generator, input_parsing, plotting, config, output
 
+import tqdm
 import torch
 
 if torch.cuda.is_available():
@@ -35,31 +36,35 @@ def main(args):
                                             readout_params = readout_config,
                                             )
 
-    input_parser = input_parsing.EdepSimParser(args.input_edepsim_file)
-    edepsim_track = input_parser.get_sample(args.event_index)
-    edepsim_event_meta = input_parser.get_meta(args.event_index)
-    evd = plotting.EventDisplay(edepsim_track)
-    # print (edepsim_track.raw_track)
+    x_range = args.x_range.split(',')
+    x_range = [float(x_range[0]), float(x_range[1])]
 
-    detector_model.drift(edepsim_track)
-    # print (edepsim_track.drifted_track)
+    y_range = args.y_range.split(',')
+    y_range = [float(y_range[0]), float(y_range[1])]
 
-    evd.init_fig()
-    # evd.plot_drifted_track()
+    z_range = args.z_range.split(',')
+    z_range = [float(z_range[0]), float(z_range[1])]
 
-    detector_model.readout(edepsim_track)
-    evd.plot_drifted_track_timeline(alpha = 0)
-    evd.plot_coarse_tile_measurement_timeline(readout_config)
-    evd.plot_pixel_measurement_timeline(readout_config)
-    # evd.plot_raw_track()
-    evd.show()
+    q_range = args.q_range.split(',')
+    q_range = [float(q_range[0]), float(q_range[1])]
 
-    evd.save(args.plot_output)
+    ps_generator = generator.PointSource(x_range = x_range,
+                                         y_range = y_range,
+                                         z_range = z_range,
+                                         q_range = q_range,
+                                         )
 
     if args.output_file:
         om = output.OutputManager(args.output_file)
-        om.add_entry(edepsim_track, edepsim_event_meta)
-        # om.add_track(edepsim_track)
+
+    for i in tqdm.tqdm(range(args.n_samples)):
+        cloud_track = ps_generator.get_sample()
+        cloud_meta = ps_generator.get_meta()
+
+        detector_model.simulate(cloud_track, verbose = False)
+
+        if args.output_file:
+            om.add_entry(cloud_track, cloud_meta)
 
     return
 
@@ -67,21 +72,14 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('input_edepsim_file',
-                        type = str,
-                        help = 'input file from which to read and simulate an event')
-    parser.add_argument('-e', '--event_index',
-                        type = int,
-                        default = 5,
-                        help = 'index of the event within the input file to be simulated')
     parser.add_argument('-o', '--output_file',
                         type = str,
                         default = "",
                         help = 'output hdf5 file to store coarse tile and pixel measurements')
-    parser.add_argument('--plot_output',
-                        type = str,
-                        default = "",
-                        help = 'file to save output plot')
+    parser.add_argument('-n', '--n_samples',
+                        type = int,
+                        default = 1000,
+                        help = 'number of point sources per output file')
 
     parser.add_argument('-d', '--detector_config',
                         type = str,
@@ -95,6 +93,24 @@ if __name__ == '__main__':
                         type = str,
                         default = "",
                         help = 'readout configuration yaml')
+
+    parser.add_argument('-x', '--x_range',
+                        type = str,
+                        default = "-10,10",
+                        help = 'min,max x values over which to generate point sources (e.g. -2,4)')
+    parser.add_argument('-y', '--y_range',
+                        type = str,
+                        default = "-10,10",
+                        help = 'min,max y values over which to generate point sources (e.g. -2,4)')
+    parser.add_argument('-z', '--z_range',
+                        type = str,
+                        default = "10,100",
+                        help = 'min,max z values over which to generate point sources (e.g. -2,4)')
+    parser.add_argument('-q', '--q_range',
+                        type = str,
+                        default = "100,100000",
+                        help = 'min,max q values over which to generate point sources (e.g. -2,4)')
+    
 
     args = parser.parse_args()
 

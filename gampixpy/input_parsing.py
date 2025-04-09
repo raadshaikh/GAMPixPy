@@ -34,12 +34,10 @@ class InputParser:
             yield sample_index, self.get_sample(sample_index), self.get_meta(sample_index)
 
 class SegmentParser (InputParser):
-    def do_recombination(self, dE, dx, dEdx):
+    def do_recombination(self, dE, dx, dEdx, mode = 'box', **kwargs):
         E_field = self.physics_config['charge_drift']['drift_field']
         LAr_density = self.physics_config['material']['density']
 
-        mode = 'box'
-        # mode = 'birks'
         if mode == 'box':
             box_beta = self.physics_config['box_model']['box_alpha']
             box_alpha = self.physics_config['box_model']['box_beta']
@@ -70,7 +68,8 @@ class SegmentParser (InputParser):
     def do_point_sampling(self, start_4vec, end_4vec,
                           dx, charge_per_segment,
                           sample_density = 1.e-1,
-                          sample_normalization = 'charge'):
+                          sample_normalization = 'charge',
+                          **kwargs):
         # point sampling with a fixed number of samples per length
         # it may be faster to do sampling another way (test in future!)
         #  - sample with fixed amount of charge
@@ -96,7 +95,7 @@ class SegmentParser (InputParser):
         return sample_4vec, sample_charges
 
 class RooTrackerParser (SegmentParser):
-    def open_file_handle(self):
+    def open_file_handle(self, **kwargs):
         from ROOT import TFile, TG4Event
 
         self.file_handle = TFile(self.input_filename)
@@ -105,15 +104,15 @@ class RooTrackerParser (SegmentParser):
         self.event = TG4Event()
         self.inputTree.SetBranchAddress("Event", self.event)
 
-    def generate_sample_order(self, sequential_sampling):
+    def generate_sample_order(self, sequential_sampling, **kwargs):
         n_images_per_file = self.inputTree.GetEntriesFast()
         if sequential_sampling:
             self.sampling_order = torch.arange(n_images_per_file)
         else:
             self.sampling_order = torch.randperm(n_images_per_file)
 
-    def get_G4_sample(self, sample_index):
-        self.inputTree.GetEntry(sample_index)
+    def get_G4_sample(self, sample_index, **kwargs):
+        self.inputTree.GetEntry(sample_index, **kwargs)
 
         start_4vec = torch.empty((0,4))
         end_4vec = torch.empty((0,4))
@@ -143,15 +142,16 @@ class RooTrackerParser (SegmentParser):
         dx = torch.sum(displacement**2, dim = 1)
         dEdx = torch.where(dx > 0, dE/dx, 0)
 
-        dQ = self.do_recombination(dE, dx, dEdx)
+        dQ = self.do_recombination(dE, dx, dEdx, **kwargs)
         charge_4vec, charge_values = self.do_point_sampling(start_4vec,
                                                             end_4vec,
                                                             dx, dQ,
+                                                            **kwargs
                                                             )
         
         return Track(charge_4vec, charge_values)
 
-    def get_G4_meta(self, sample_index):
+    def get_G4_meta(self, sample_index, **kwargs):
         primary_vertex = self.event.Primaries[0] # assume only one primary for now
 
         vertex_x = primary_vertex.GetPosition().X()*mm
@@ -180,21 +180,21 @@ class RooTrackerParser (SegmentParser):
                               dtype = meta_dtype)
         return meta_array
 
-    def get_sample(self, index):
-        return self.get_G4_sample(index)
+    def get_sample(self, index, **kwargs):
+        return self.get_G4_sample(index, **kwargs)
 
-    def get_meta(self, index):
-        return self.get_G4_meta(index)
+    def get_meta(self, index, **kwargs):
+        return self.get_G4_meta(index, **kwargs)
 
 class EdepSimParser (SegmentParser):
     # Unit conventions for edepsim inputs:
     # distance: cm
     # energy: MeV
-    def open_file_handle(self):
+    def open_file_handle(self, **kwargs):
         import h5py
-        self.file_handle = h5py.File(self.input_filename)
+        self.file_handle = h5py.File(self.input_filename, **kwargs)
 
-    def generate_sample_order(self, sequential_sampling):
+    def generate_sample_order(self, sequential_sampling, **kwargs):
         unique_event_ids = np.unique(self.file_handle['trajectories']['eventID']).astype(np.int32)
         # unique_event_ids = torch.tensor(unique_event_ids, dtype = torch.int32)
         n_images_per_file = len(unique_event_ids)
@@ -203,11 +203,11 @@ class EdepSimParser (SegmentParser):
         else:
             self.sampling_order = torch.tensor(unique_event_ids[torch.randperm(n_images_per_file)])
         
-    def get_edepsim_event(self, sample_index):
-        segment_mask = self.file_handle['segments']['eventID'] == sample_index
+    def get_edepsim_event(self, sample_index, **kwargs):
+        segment_mask = self.file_handle['segments']['eventID'] == sample_index.item()
         event_segments = self.file_handle['segments'][segment_mask]
 
-        trajectory_mask = self.file_handle['trajectories']['eventID'] == sample_index
+        trajectory_mask = self.file_handle['trajectories']['eventID'] == sample_index.item()
         event_trajectories = self.file_handle['trajectories'][trajectory_mask]
 
         start_4vec = torch.tensor((event_segments['x_start']*cm,
@@ -226,15 +226,16 @@ class EdepSimParser (SegmentParser):
         dx = torch.sum(displacement**2, dim = 1)
         dEdx = torch.where(dx > 0, dE/dx, 0)
 
-        dQ = self.do_recombination(dE, dx, dEdx)
+        dQ = self.do_recombination(dE, dx, dEdx, **kwargs)
         charge_4vec, charge_values = self.do_point_sampling(start_4vec,
                                                             end_4vec,
                                                             dx, dQ,
+                                                            **kwargs
                                                             )
         return Track(charge_4vec, charge_values)
     
-    def get_edepsim_meta(self, sample_index):
-        trajectory_mask = self.file_handle['trajectories']['eventID'] == sample_index
+    def get_edepsim_meta(self, sample_index, **kwargs):
+        trajectory_mask = self.file_handle['trajectories']['eventID'] == sample_index.item()
         event_trajectories = self.file_handle['trajectories'][trajectory_mask]
         primary_trajectory = event_trajectories[event_trajectories['parentID'] == -1]
 
@@ -259,11 +260,11 @@ class EdepSimParser (SegmentParser):
                               dtype = meta_dtype)
         return meta_array
         
-    def get_sample(self, index):
-        return self.get_edepsim_event(index)
+    def get_sample(self, index, **kwargs):
+        return self.get_edepsim_event(index, **kwargs)
 
-    def get_meta(self, index):
-        return self.get_edepsim_meta(index)
+    def get_meta(self, index, **kwargs):
+        return self.get_edepsim_meta(index, **kwargs)
 
 class MarleyParser (SegmentParser):
     # BROKEN
@@ -479,3 +480,7 @@ class PenelopeParser (InputParser):
     def get_meta(self, index):
         return None
 
+parser_dict = {'root': RooTrackerParser,
+               'edepsim': EdepSimParser,
+               'marley': MarleyParser,
+               }

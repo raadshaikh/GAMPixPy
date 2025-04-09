@@ -3,6 +3,17 @@ import tqdm
 import gampixpy
 from gampixpy import detector, input_parsing, plotting, config, output
 
+import torch
+
+if torch.cuda.is_available():
+    device = torch.device('cuda')
+    # Set the default device to CUDA
+    torch.set_default_device(device)
+    print(f"Default device set to: {torch.cuda.get_device_name(device)}")
+else:
+    device = torch.device('cpu')
+    print("CUDA is not available, using CPU")
+
 def main(args):
 
     # load configs for physics, detector, and readout
@@ -29,14 +40,15 @@ def main(args):
     if args.output_file:
         output_manager = output.OutputManager(args.output_file)
 
-    input_parser = input_parsing.RooTrackerParser(args.input_root_file)
-    for event_index, root_track, event_meta in tqdm.tqdm(input_parser):
-        detector_model.simulate(root_track)
-        print ("found", len(root_track.coarse_tiles_samples), "coarse tile hits")
-        print ("found", len(root_track.pixel_samples), "pixel hits")
+    input_parser = input_parsing.parser_dict[args.input_format](args.input_edepsim_file)
+
+    for event_index, edepsim_track, event_meta in tqdm.tqdm(input_parser):
+        detector_model.simulate(edepsim_track)
+        print ("found", len(edepsim_track.coarse_tiles_samples), "coarse tile hits")
+        print ("found", len(edepsim_track.pixel_samples), "pixel hits")
         
         if args.output_file:
-            output_manager.add_entry(root_track, event_meta)
+            output_manager.add_entry(edepsim_track, event_meta)
 
     return
 
@@ -44,13 +56,13 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('input_root_file',
+    parser.add_argument('input_edepsim_file',
                         type = str,
                         help = 'input file from which to read and simulate an event')
-    parser.add_argument('-e', '--event_index',
-                        type = int,
-                        default = 5,
-                        help = 'index of the event within the input file to be simulated')
+    parser.add_argument('-i', '--input_format',
+                        type = str,
+                        default = 'edepsim',
+                        help = 'input file format.  Must be one of {root, edepsim, marley}')
     parser.add_argument('-o', '--output_file',
                         type = str,
                         default = "",
