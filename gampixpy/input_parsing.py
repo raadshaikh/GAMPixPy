@@ -29,6 +29,12 @@ class InputParser:
 
         self.open_file_handle()
         self.generate_sample_order(sequential_sampling)
+
+    def __len__(self):
+        if 'n_images' in dir(self):
+            return self.n_images
+        else:
+            return None
         
     def __iter__(self):
         for sample_index in self.sampling_order:
@@ -94,11 +100,11 @@ class RooTrackerParser (SegmentParser):
         self.inputTree.SetBranchAddress("Event", self.event)
 
     def generate_sample_order(self, sequential_sampling, **kwargs):
-        n_images_per_file = self.inputTree.GetEntriesFast()
+        self.n_images = self.inputTree.GetEntriesFast()
         if sequential_sampling:
-            self.sampling_order = torch.arange(n_images_per_file)
+            self.sampling_order = torch.arange(self.n_images)
         else:
-            self.sampling_order = torch.randperm(n_images_per_file)
+            self.sampling_order = torch.randperm(self.n_images)
 
     def get_G4_sample(self, sample_index, **kwargs):
         self.inputTree.GetEntry(sample_index, **kwargs)
@@ -186,11 +192,11 @@ class EdepSimParser (SegmentParser):
     def generate_sample_order(self, sequential_sampling, **kwargs):
         unique_event_ids = np.unique(self.file_handle['trajectories']['eventID']).astype(np.int32)
         # unique_event_ids = torch.tensor(unique_event_ids, dtype = torch.int32)
-        n_images_per_file = len(unique_event_ids)
+        self.n_images = len(unique_event_ids)
         if sequential_sampling:
             self.sampling_order = torch.tensor(unique_event_ids)
         else:
-            self.sampling_order = torch.tensor(unique_event_ids[torch.randperm(n_images_per_file)])
+            self.sampling_order = torch.tensor(unique_event_ids[torch.randperm(self.n_images)])
         
     def get_edepsim_event(self, sample_index, **kwargs):
         print (sample_index)
@@ -270,7 +276,7 @@ class MarleyParser (SegmentParser):
         for entry in self.inputTree:
             event_ids.append(entry.event)
         unique_event_ids = np.unique(event_ids)
-        n_images_per_file = self.inputTree.GetEntriesFast()
+        self.n_images = self.inputTree.GetEntriesFast()
         if sequential_sampling:
             self.sampling_order = unique_event_ids
         else:
@@ -455,7 +461,7 @@ class PenelopeParser (InputParser):
         return 
 
     def generate_sample_order(self, sequential_sampling):
-        # n_images_per_file = len(np.unique(self.file_handle['trajectories']['eventID']))
+        # self.n_images = len(np.unique(self.file_handle['trajectories']['eventID']))
         return 
         
     def get_penelope_sample(self):

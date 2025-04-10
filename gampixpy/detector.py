@@ -41,6 +41,10 @@ class ReadoutModel:
         # find hits on fine pixels
         self.fine_pixel_hits = self.pixel_hit_finding(track, fine_pixel_timeseries, **kwargs)
 
+        if verbose:
+            print ("found", len(track.coarse_tiles_samples), "coarse tile hits")
+            print ("found", len(track.pixel_samples), "pixel hits")
+        
         return 
 
     def point_sample_tile_current(self, tile_coord, track, sample_mask):
@@ -136,7 +140,7 @@ class ReadoutModel:
 
         for this_tile_ind in unique_tile_indices:
             tile_center = torch.tensor([self.readout_config['tile_volume_edges'][i][this_tile_ind[i]] + 0.5*self.readout_config['coarse_tiles']['pitch']
-                                        for i in range(2)]).T
+                                        for i in range(2)])
             tile_coord = (round(float(tile_center[0]), 3),
                           round(float(tile_center[1]), 3))
 
@@ -269,7 +273,7 @@ class ReadoutModel:
             # for this_pixel_hash, this_pixel_ind in zip(unique_pixel_hashes, unique_pixel_indices):
             for this_pixel_ind in unique_pixel_indices:
                 pixel_center = torch.tensor([pixel_volume_edges[i][this_pixel_ind[i]] + 0.5*pixel_pitch
-                                             for i in range(2)]).T
+                                             for i in range(2)])
                 pixel_coord = (round(float(pixel_center[0]), 3),
                                round(float(pixel_center[1]), 3))
 
