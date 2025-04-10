@@ -23,8 +23,8 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     install_requires=reqs,
     classifiers=[
-        "Development Status :: 1 - Pre-Alpha",
-        "Intended Audience :: Developers",
+        "Development Status :: 4 - Beta",
+        "Intended Audience :: Science/Research",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
