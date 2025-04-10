@@ -1,6 +1,7 @@
 from gampixpy.tracks import Track
 from gampixpy.config import default_physics_params
 from gampixpy.units import *
+from gampixpy.recombination import BoxRecombinationModel, BirksRecombinationModel
 
 import numpy as np
 import torch
@@ -31,30 +32,18 @@ class InputParser:
         
     def __iter__(self):
         for sample_index in self.sampling_order:
-            yield sample_index, self.get_sample(sample_index), self.get_meta(sample_index)
+            yield sample_index.item(), self.get_sample(sample_index.item()), self.get_meta(sample_index.item())
 
 class SegmentParser (InputParser):
     def do_recombination(self, dE, dx, dEdx, mode = 'box', **kwargs):
-        E_field = self.physics_config['charge_drift']['drift_field']
-        LAr_density = self.physics_config['material']['density']
-
         if mode == 'box':
-            box_beta = self.physics_config['box_model']['box_alpha']
-            box_alpha = self.physics_config['box_model']['box_beta']
-
-            csi = box_beta*dEdx/(E_field*LAr_density)
-            recomb = torch.max(torch.stack([torch.zeros_like(dE),
-                                            torch.log(box_alpha + csi)/csi]),
-                               dim = 0)[0]
-
+            recombination_model = BoxRecombinationModel(self.physics_config)
         elif mode == 'birks':
-            birks_ab = self.physics_config['birks_model']['birks_ab']
-            birks_kb = self.physics_config['birks_model']['birks_kb']
-
-            recomb = birks_ab/(1 + birks_kb*dEdx/(E_field * LAr_density))
-
+            recombination_model = BirksRecombinationModel(self.physics_config)
         else:
             raise ValueError("Invalid recombination mode: must be 'physics.BOX' or 'physics.BRIKS'")
+
+        recomb = recombination_model(dE, dx, dEdx)
 
         if torch.any(torch.isnan(recomb)):
             raise RuntimeError("Invalid recombination value")
@@ -204,10 +193,11 @@ class EdepSimParser (SegmentParser):
             self.sampling_order = torch.tensor(unique_event_ids[torch.randperm(n_images_per_file)])
         
     def get_edepsim_event(self, sample_index, **kwargs):
-        segment_mask = self.file_handle['segments']['eventID'] == sample_index.item()
+        print (sample_index)
+        segment_mask = self.file_handle['segments']['eventID'] == sample_index
         event_segments = self.file_handle['segments'][segment_mask]
 
-        trajectory_mask = self.file_handle['trajectories']['eventID'] == sample_index.item()
+        trajectory_mask = self.file_handle['trajectories']['eventID'] == sample_index
         event_trajectories = self.file_handle['trajectories'][trajectory_mask]
 
         start_4vec = torch.tensor((event_segments['x_start']*cm,
@@ -235,7 +225,7 @@ class EdepSimParser (SegmentParser):
         return Track(charge_4vec, charge_values)
     
     def get_edepsim_meta(self, sample_index, **kwargs):
-        trajectory_mask = self.file_handle['trajectories']['eventID'] == sample_index.item()
+        trajectory_mask = self.file_handle['trajectories']['eventID'] == sample_index
         event_trajectories = self.file_handle['trajectories'][trajectory_mask]
         primary_trajectory = event_trajectories[event_trajectories['parentID'] == -1]
 
