@@ -1,3 +1,8 @@
+# This script is meant to demonstrate batch processing of
+# an entire input file, and producing a single output file 
+# with simultion products and metadata with corresponding
+# event indices 
+
 import tqdm
 
 import gampixpy

@@ -1,3 +1,7 @@
+# This script is mean to demonstrate processing a single input
+# from a provided input file, and showing how to use the built-in
+# event display methods
+
 from gampixpy import detector, input_parsing, plotting, config, output
 
 import torch
