@@ -7,8 +7,8 @@ VER = "0.1"
 reqs = ['numpy',
         'h5py',
         'tqdm',
-        'torch==2.6.0+cpu',
-        'ROOT',
+        'torch',
+        # 'ROOT',
         'particle',
         'yaml',
         ]
