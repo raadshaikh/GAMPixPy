@@ -69,6 +69,7 @@ def main(args):
     # evd.plot_drifted_track_timeline(alpha = 0) # can also pass kwargs to plt.scatter
     evd.plot_coarse_tile_measurement_timeline(readout_config) # plot tile hits
     evd.plot_pixel_measurement_timeline(readout_config) # plot pixel hits
+
     evd.show()
 
     evd.save(args.plot_output)

@@ -12,6 +12,7 @@ reqs = ['numpy',
         'particle',
         'pyyaml',
         ]
+links = ['https://download.pytorch.org/whl/cpu']
 
 setuptools.setup(
     name="gampixpy",
@@ -22,6 +23,7 @@ setuptools.setup(
     url="https://github.com/DanielMDouglas/GAMPixPy",
     packages=setuptools.find_packages(),
     install_requires=reqs,
+    dependency_links=links,
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Science/Research",
