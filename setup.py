@@ -10,7 +10,7 @@ reqs = ['numpy',
         'torch',
         # 'ROOT',
         'particle',
-        'yaml',
+        'pyyaml',
         ]
 
 setuptools.setup(
