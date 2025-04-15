@@ -7,8 +7,8 @@ VER = "0.1"
 reqs = ['numpy',
         'h5py',
         'tqdm',
-        'torch',
-        # 'ROOT',
+        # 'torch', # skip this for now.  Users must fend for themselves!
+        # 'ROOT', # skip this for now.  Users must fend for themselves!
         'particle',
         'pyyaml',
         ]
@@ -23,6 +23,7 @@ setuptools.setup(
     url="https://github.com/DanielMDouglas/GAMPixPy",
     packages=setuptools.find_packages(),
     install_requires=reqs,
+    package_data={"gampixpy": ["*_config/*.yaml"]},
     dependency_links=links,
     classifiers=[
         "Development Status :: 4 - Beta",
