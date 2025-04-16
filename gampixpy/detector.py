@@ -506,7 +506,7 @@ class DetectorModel:
         # i.e., specify a plane and assume drift direction is shortest
         # path to that plane
         # anode_z = self.detector_params['anode']['z']
-        anode_z = self.readout_params['anode']['z_range'][0]
+        anode_z = self.readout_params['anode']['z_lower_bound']
 
         input_position = sampled_track.raw_track['4vec'][:,:3]
         input_charges = sampled_track.raw_track['charge']

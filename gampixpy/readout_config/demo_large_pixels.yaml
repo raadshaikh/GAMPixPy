@@ -27,7 +27,7 @@ coarse_tiles:
     value: 0.01
     unit: cm
   power_per_tile:
-    value: 1e-3
+    value: 1.e-3
     unit: cm
   noise:
     value: 10

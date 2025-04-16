@@ -55,10 +55,10 @@ ke = 1.e3
 C = 6.242e18*e
 
 # potential
-mV = 1.e-6
-V = 1.e-3
-kV = 1.
-MV = 1.e3
+mV = 1.e-9
+V = 1.e-6
+kV = 1.e-3
+MV = 1.
 
 # energy
 meV = 1.e-9
@@ -70,7 +70,13 @@ TeV = 1.e6
 
 J = eV/e*C
 
+# power
+W = J/s
+
 def unit_parser(unit_string_expression):
+    # units need to be in formats like:
+    # cm*cm/s
+    # no carrot notation! (right now)
     unit_words = []
     unit_power = [1]
     this_word = ''
@@ -94,11 +100,7 @@ def unit_parser(unit_string_expression):
     for this_word in unit_words:
         assert (this_word in globals()), this_word + " not found!"
         unit_factor.append(globals()[this_word])
-        print ("bop")
-
-    print ("word", unit_words)
-    print ("power", unit_power)
-
+        
     unit_product = 1
     for unit, power in zip(unit_factor, unit_power):
         unit_product *= pow(unit, power)
