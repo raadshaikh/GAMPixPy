@@ -2,7 +2,7 @@
 
 import setuptools
 
-VER = "0.1.1"
+VER = "0.1.2"
 
 reqs = ['numpy',
         'h5py',
