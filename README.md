@@ -1,14 +1,19 @@
-# GAMPixPy
-Detector Simulation for GAMPix-based LArTPC designs, including GammaTPC and DUNE
+<img alt="GAMPixPy" src="docs/gampixpy_logo.png" height="480" />
+
+GAMPixPy: A Detector Simulation for GAMPix-based LArTPC designs, including GammaTPC and DUNE
 
 ## Getting Started
 
+### Requirements
+
+In addition to some common utility libraries which are handled by setuptools, users will need a working installation of pytorch and pyroot to enjoy the full functionality of this software.  These libraries are commonly distributed in singularity/apptainer images.  If you have no clue how to do this, please reach out to the author!
+
 ### Installation
 
-Installation should be handled by `pip` and `setuptools`.  To install an editable version of the package, simply do
+Installation should be handled by `pip` and `setuptools`.  To install the package from pypi, simply do
 
 ```
-pip install -e [path containing setup.py]
+pip install gampixpy
 ```
 
 ### Minimal Simulation Example
