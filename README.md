@@ -1,4 +1,4 @@
-<img alt="GAMPixPy" src="docs/gampixpy_logo.png" height="480" />
+<img alt="GAMPixPy" align="center" src="docs/gampixpy_logo.png" height="240" />
 
 GAMPixPy: A Detector Simulation for GAMPix-based LArTPC designs, including GammaTPC and DUNE
 
