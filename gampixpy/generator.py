@@ -26,11 +26,11 @@ class PointSource (Generator):
     def get_sample(self):
         self.generate_sample_params()
 
-        charge_4vec = torch.stack(self.n_samples_per_point*[[self.x_init,
-                                                             self.y_init,
-                                                             self.z_init,
-                                                             self.t_init,
-                                                             ]])
+        charge_4vec = torch.tensor(self.n_samples_per_point*[[self.x_init,
+                                                              self.y_init,
+                                                              self.z_init,
+                                                              self.t_init,
+                                                              ]])
         charge_values = torch.tensor(self.n_samples_per_point*[self.q_init/self.n_samples_per_point,
                                                                ])                                 
         

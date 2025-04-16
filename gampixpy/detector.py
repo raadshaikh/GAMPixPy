@@ -3,6 +3,7 @@ from gampixpy.readout_objects import PixelSample, CoarseGridSample
 
 import numpy as np
 import torch
+import torchist
 
 class ReadoutModel:
     def __init__(self, readout_config = default_readout_params):
@@ -96,9 +97,9 @@ class ReadoutModel:
                                                 )
 
         # find the induced charge which falls into each clock bin
-        induced_charge, _ = torch.histogram(sparse_current_series[0,:,:],
-                                            weight = sparse_current_series[1,:,:],
-                                            bins = arrival_time_bin_edges)
+        induced_charge = torchist.histogram(sparse_current_series[0,:,:],
+                                            weights = sparse_current_series[1,:,:],
+                                            edges = arrival_time_bin_edges)
 
         return arrival_time_bin_edges[:-1], induced_charge
         
@@ -202,9 +203,9 @@ class ReadoutModel:
                                                 )
 
         # find the induced charge which falls into each clock bin
-        induced_charge, _ = torch.histogram(sparse_current_series[0,:,:],
-                                            weight = sparse_current_series[1,:,:],
-                                            bins = arrival_time_bin_edges)
+        induced_charge = torchist.histogram(sparse_current_series[0,:,:],
+                                            weights = sparse_current_series[1,:,:],
+                                            edges = arrival_time_bin_edges)
 
         return arrival_time_bin_edges[:-1], induced_charge
 
@@ -267,13 +268,8 @@ class ReadoutModel:
             # generate a unique id for each pixel within this coarse hit
             # so that hits from 
             pixel_ind = torch.div(in_cell_positions[:,[0, 1]] - min_pixel, pixel_pitch).int()
-            # pixel_hash = np.array([hash(tuple(ind)+tuple(cell_center_xy)) for ind in pixel_ind])
-
-            # unique_pixel_hashes, unique_pixel_key = np.unique(pixel_hash, return_index = True)
-            # unique_pixel_indices = pixel_ind[unique_pixel_key]
             unique_pixel_indices = torch.unique(pixel_ind, dim = 0)
             
-            # for this_pixel_hash, this_pixel_ind in zip(unique_pixel_hashes, unique_pixel_indices):
             for this_pixel_ind in unique_pixel_indices:
                 pixel_center = torch.tensor([pixel_volume_edges[i][this_pixel_ind[i]] + 0.5*pixel_pitch
                                              for i in range(2)])
@@ -310,8 +306,6 @@ class GAMPixModel (ReadoutModel):
             # search along the bins until no more threshold crossings
             no_more_hits = False
             while not no_more_hits:
-                # window_charge = np.convolve(interval_charge,
-                #                             np.ones(hold_length))
                 window_charge = torch.conv_tbc(interval_charge[:,None,None],
                                                torch.ones(hold_length,1,1),
                                                bias = torch.zeros(1),
@@ -396,8 +390,6 @@ class LArPixModel (ReadoutModel):
             # search along the bins until no more threshold crossings
             no_more_hits = False
             while not no_more_hits:
-                # window_charge = np.convolve(interval_charge,
-                #                             np.ones(hold_length))
                 window_charge = torch.conv_tbc(interval_charge[:,None,None],
                                                torch.ones(hold_length,1,1),
                                                bias = torch.zeros(1),
@@ -470,7 +462,6 @@ class LArPixModel (ReadoutModel):
 
                     if not nonoise:
                         # add quiescent noise
-                        # threshold_crossing_charge += np.random.normal(scale = self.readout_config['pixels']['noise'])
                         threshold_crossing_charge += torch.poisson(torch.tensor(self.readout_config['pixels']['noise']).float())
 
                     interval_charge[:hit_index+hold_length] = 0
@@ -540,10 +531,10 @@ class DetectorModel:
                                        )).T
         
         drifted_positions = torch.normal(region_position,
-                                         diffusion_sigma*np.ones_like(region_position))
+                                         diffusion_sigma*torch.ones_like(region_position))
 
         # charge is diminished by attenuation
-        drifted_charges = region_charges*np.exp(-drift_time/self.physics_params['charge_drift']['electron_lifetime'])
+        drifted_charges = region_charges*torch.exp(-drift_time/self.physics_params['charge_drift']['electron_lifetime'])
 
         # add dispersion to the arrival of charge due to longitudinal diffusion
         time_dispersion = (drifted_positions[:, 2] - region_position[:, 2])/self.physics_params['charge_drift']['drift_speed'] 

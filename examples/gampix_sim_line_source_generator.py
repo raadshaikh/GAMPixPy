@@ -45,6 +45,9 @@ def main(args):
     z_range = args.z_range.split(',')
     z_range = [float(z_range[0]), float(z_range[1])]
 
+    t_range = args.t_range.split(',')
+    t_range = [float(t_range[0]), float(z_range[1])]
+
     q_range = args.q_range.split(',')
     q_range = [float(q_range[0]), float(q_range[1])]
 
@@ -54,6 +57,7 @@ def main(args):
     ps_generator = generator.LineSource(x_range = x_range,
                                         y_range = y_range,
                                         z_range = z_range,
+                                        t_range = t_range,
                                         q_range = q_range,
                                         length_range = l_range,
                                         )
@@ -111,6 +115,10 @@ if __name__ == '__main__':
                         type = str,
                         default = "10,100",
                         help = 'min,max z values over which to generate point sources (e.g. -2,4)')
+    parser.add_argument('-t', '--t_range',
+                        type = str,
+                        default = "0,0",
+                        help = 'min,max t values over which to generate point sources (e.g. -2,4)')
     parser.add_argument('-q', '--q_range',
                         type = str,
                         default = "100,100000",
