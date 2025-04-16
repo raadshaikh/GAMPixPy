@@ -41,7 +41,7 @@ class InputParser:
             yield sample_index.item(), self.get_sample(sample_index.item()), self.get_meta(sample_index.item())
 
 class SegmentParser (InputParser):
-    def do_recombination(self, dE, dx, dEdx, mode = 'box', **kwargs):
+    def do_recombination(self, dE, dx, dEdx, mode = 'birks', **kwargs):
         if mode == 'box':
             recombination_model = BoxRecombinationModel(self.physics_config)
         elif mode == 'birks':
