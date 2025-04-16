@@ -85,7 +85,10 @@ class ReadoutModel:
         combine multiple sparse timeseries into a single dense timeseries
         """
         last_charge_arrival_time = torch.max(sparse_current_series[0,:,:])
-        n_clock_ticks = torch.ceil((last_charge_arrival_time - self.clock_start_time)/self.readout_config['coarse_tiles']['clock_interval']).int()
+        # when there is only one charge sample in a coarse cell's field
+        # and it is also the earliest charge sample, n_clock_ticks is 0
+        # so, add an extra clock tick to be safe
+        n_clock_ticks = torch.ceil((last_charge_arrival_time - self.clock_start_time)/self.readout_config['coarse_tiles']['clock_interval']).int() + 1 
 
         arrival_time_bin_edges = torch.linspace(self.clock_start_time,
                                                 self.clock_start_time + n_clock_ticks*self.readout_config['coarse_tiles']['clock_interval'],
