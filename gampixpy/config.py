@@ -1,4 +1,5 @@
 import gampixpy
+from gampixpy import units, mobility
 
 import os
 import yaml
@@ -15,10 +16,26 @@ class Config (dict):
         # parse a config (yaml) file and store values
         # internally as a dict
         with open(self.config_filename) as config_file:
-            for key, value in yaml.load(config_file, Loader = yaml.FullLoader).items():
-                self[key] = value
-        
-        return
+            self.update(yaml.load(config_file, Loader = yaml.FullLoader).items())
+
+        # where quantities with units are specified,
+        # resolve them to the internal unit system
+        self.update(self.resolve_units(self))
+
+    def resolve_units(self, sub_dict):
+        if 'value' in sub_dict and 'unit' in sub_dict:
+            numerical_value = sub_dict['value']
+            unit = units.unit_parser(sub_dict['unit'])
+            resolved_dict = numerical_value*unit
+        else:
+            resolved_dict = {}
+            for key, value in sub_dict.items():
+                if type(value) == dict:
+                    resolved_dict[key] = self.resolve_units(value)
+                else:
+                    resolved_dict[key] = value
+
+        return resolved_dict
 
 class DetectorConfig (Config):
     def compute_derived_parameters(self):
@@ -29,48 +46,8 @@ class DetectorConfig (Config):
 
 class PhysicsConfig (Config):
     def compute_derived_parameters(self):
-        # compute drift velocity, diffusion model
-
-        # Using the mobility model described in https://arxiv.org/abs/1508.07059
-        a0 = self['charge_drift']['mobility_parameter_a0'] # cm^2/V/s
-        a1 = self['charge_drift']['mobility_parameter_a1']
-        a2 = self['charge_drift']['mobility_parameter_a2']
-        a3 = self['charge_drift']['mobility_parameter_a3']
-        a4 = self['charge_drift']['mobility_parameter_a4']
-        a5 = self['charge_drift']['mobility_parameter_a5']
-        T0 = self['charge_drift']['mobility_reference_T0']
-
-        b0 = self['charge_drift']['mobility_parameter_b0'] # eV
-        b1 = self['charge_drift']['mobility_parameter_b1']
-        b2 = self['charge_drift']['mobility_parameter_b2']
-        b3 = self['charge_drift']['mobility_parameter_b3']
-        T1 = self['charge_drift']['mobility_reference_T1']
-
-        E = self['charge_drift']['drift_field'] # kV/cm
-        T = self['material']['temperature'] # K
-        
-        numerator = a0 + a1*E + a2*np.power(E, 3./2) + a3*np.power(E, 5./2)
-        denominator = 1 + (a1/a0)*E + a4*np.power(E, 2) + a5*np.power(E, 3)
-        mu = numerator*np.power(T/T0, -3./2)/denominator # cm^2/V/s
-        # mu *= 10*10 # mm^2/V/s
-        # mu /= 1.e9 # mm^2/V/ns
-        
-        dMudE = ((a1 + 3./2*a2*np.power(E, 1./2) + 5./2*a3*np.power(E, 3./2))*denominator - numerator*(a1/a0 + 2*a4*E + 3*a5*np.power(E, 2)))*np.power(T/T0, -3./2)/np.power(denominator, 2) # cm^3/V/kV/s
-        dMudE /= 1000.
-        # dMudE *= 10*10*10 # mm^3/V^2/s
-        # dMudE /= 1.e9 # mm^3/V^2/ns
-
-        e = (b0 + b1*E + b2*np.power(E, 2))*(T/T1)/(1 + (b1/b0)*E + b3*np.power(E, 2)) # eV
-        e /= 1.e6 # MeV
-
-        R = 1 + E/mu*dMudE*1000 # diffusion ratio
-        
-        self['charge_drift']['electron_mobility'] = mu # cm^2/V/s
-        self['charge_drift']['drift_energy'] = e # MeV
-        self['charge_drift']['diffusion_longitudinal'] = mu*e*1.e6 # cm^2/s
-        self['charge_drift']['diffusion_ratio'] = R
-        self['charge_drift']['diffusion_transverse'] = mu*e/R*1.e6 # cm^2/s
-        self['charge_drift']['drift_speed'] = mu*E*1.e3 # cm/s
+        mobility_model = mobility.MobilityModel(self)
+        self['charge_drift'].update(mobility_model.compute_parameters())
 
         return
 
@@ -80,17 +57,17 @@ class ReadoutConfig (Config):
         # those specified in the YAML
 
         # need to handle the case where the pitch doesn't evenly divide the span of the anode
-        self['n_pixels_x'] = int((self['anode']['x_range'][1] - self['anode']['x_range'][0])/self['pixels']['pitch'])
-        self['n_pixels_y'] = int((self['anode']['y_range'][1] - self['anode']['y_range'][0])/self['pixels']['pitch'])
+        self['n_pixels_x'] = int((self['anode']['x_upper_bound'] - self['anode']['x_lower_bound'])/self['pixels']['pitch'])
+        self['n_pixels_y'] = int((self['anode']['y_upper_bound'] - self['anode']['y_lower_bound'])/self['pixels']['pitch'])
 
-        self['n_tiles_x'] = int((self['anode']['x_range'][1] - self['anode']['x_range'][0])/self['coarse_tiles']['pitch'])
-        self['n_tiles_y'] = int((self['anode']['y_range'][1] - self['anode']['y_range'][0])/self['coarse_tiles']['pitch'])
+        self['n_tiles_x'] = int((self['anode']['x_upper_bound'] - self['anode']['x_lower_bound'])/self['coarse_tiles']['pitch'])
+        self['n_tiles_y'] = int((self['anode']['y_upper_bound'] - self['anode']['y_lower_bound'])/self['coarse_tiles']['pitch'])
 
-        self['tile_volume_edges'] = (np.linspace(self['anode']['x_range'][0],
-                                                 self['anode']['x_range'][1],
+        self['tile_volume_edges'] = (np.linspace(self['anode']['x_lower_bound'],
+                                                 self['anode']['x_upper_bound'],
                                                  self['n_tiles_x']+1),
-                                     np.linspace(self['anode']['y_range'][0],
-                                                 self['anode']['y_range'][1],
+                                     np.linspace(self['anode']['y_lower_bound'],
+                                                 self['anode']['y_upper_bound'],
                                                  self['n_tiles_y']+1))
         return
 

@@ -119,8 +119,8 @@ class ReadoutModel:
         """
         Build the current timeseries for each tile
         """
-        min_tile = torch.tensor([self.readout_config['anode']['x_range'][0],
-                                 self.readout_config['anode']['y_range'][0],
+        min_tile = torch.tensor([self.readout_config['anode']['x_lower_bound'],
+                                 self.readout_config['anode']['y_lower_bound'],
                                  ])
         spacing = self.readout_config['coarse_tiles']['pitch']
         tile_ind = torch.div(track.drifted_track['position'][:,:2] - min_tile, spacing).int()
@@ -506,7 +506,7 @@ class DetectorModel:
         # i.e., specify a plane and assume drift direction is shortest
         # path to that plane
         # anode_z = self.detector_params['anode']['z']
-        anode_z = self.readout_params['anode']['z_range'][0]
+        anode_z = self.readout_params['anode']['z_lower_bound']
 
         input_position = sampled_track.raw_track['4vec'][:,:3]
         input_charges = sampled_track.raw_track['charge']

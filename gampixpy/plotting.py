@@ -210,7 +210,7 @@ class EventDisplay:
             
         self.ax.set_xlabel(r'x (transverse) [cm]')
         self.ax.set_ylabel(r'y (transverse) [cm]')
-        self.ax.set_zlabel(r'Arrival Time [ns]')
+        self.ax.set_zlabel(r'Arrival Time [us]')
         
     def plot_pixel_measurement(self, readout_config):
         
@@ -247,4 +247,4 @@ class EventDisplay:
             
         self.ax.set_xlabel(r'x (transverse) [cm]')
         self.ax.set_ylabel(r'y (transverse) [cm]')
-        self.ax.set_zlabel(r'arrival time [ns]')
+        self.ax.set_zlabel(r'arrival time [us]')

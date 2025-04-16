@@ -1,10 +1,15 @@
 material:
   name: LAr
-  temperature: 87 # K
+  temperature:
+    value: 87
+    unit: K
   long_name: "Liquid Argon"
-  # temperature: 110.0 # K
-  w: 2.36e-5 # MeV/ion pair
-  density: 1.396 # g/ml
+  w:
+    value: 2.36e-5
+    unit: MeV # /ion pair
+  density:
+    value: 1.396
+    unit: g/mL
   fano: 0.1160
   sigma_p: 0.0600
 
@@ -17,7 +22,7 @@ birks_model:
   birks_kb: 0.0486 # g/cm2/MeV Amoruso, et al NIM A 523 (2004) 275
 
 charge_drift:
-  mobility_parameter_a0: 551.6 # cm^2/V/s
+  mobility_parameter_a0: 551.6
   mobility_parameter_a1: 7158.3
   mobility_parameter_a2: 4440.43
   mobility_parameter_a3: 4.29
@@ -28,15 +33,12 @@ charge_drift:
   mobility_parameter_b1: 742.9
   mobility_parameter_b2: 3269.6
   mobility_parameter_b3: 31678.2
-  mobility_reference_T1: 87 # K  
-  electron_lifetime: 1.0e+10 # s
-  drift_field: 0.5 # kV/cm
-
-light:
-  spe_threshold: 3.0
-  spe_noise: 0.2
-  collection: 0.1
-
-spatial_resolution:
-  sigma_transverse: 0.5e-3
-  sigma_longitudinal: 0.5e-3
+  mobility_reference_T1:
+    value: 87
+    unit: K
+  electron_lifetime:
+    value: 10
+    unit: ms
+  drift_field:
+    value: 0.5
+    unit: kV/cm
