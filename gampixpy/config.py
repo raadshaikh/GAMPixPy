@@ -1,4 +1,5 @@
 import gampixpy
+from gampixpy import units
 
 import os
 import yaml
@@ -15,10 +16,26 @@ class Config (dict):
         # parse a config (yaml) file and store values
         # internally as a dict
         with open(self.config_filename) as config_file:
-            for key, value in yaml.load(config_file, Loader = yaml.FullLoader).items():
-                self[key] = value
-        
-        return
+            self.update(yaml.load(config_file, Loader = yaml.FullLoader).items())
+
+        # where quantities with units are specified,
+        # resolve them to the internal unit system
+        self.update(self.resolve_units(self))
+
+    def resolve_units(self, sub_dict):
+        if 'value' in sub_dict and 'unit' in sub_dict:
+            numerical_value = sub_dict['value']
+            unit = units.unit_parser(sub_dict['unit'])
+            resolved_dict = numerical_value*unit
+        else:
+            resolved_dict = {}
+            for key, value in sub_dict.items():
+                if type(value) == dict:
+                    resolved_dict[key] = self.resolve_units(value)
+                else:
+                    resolved_dict[key] = value
+
+        return resolved_dict
 
 class DetectorConfig (Config):
     def compute_derived_parameters(self):
