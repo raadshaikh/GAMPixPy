@@ -7,6 +7,7 @@
 """
 
 The basic units are :
+    kilogram                (kg)
     centimeter              (cm)
     microsecond             (us)
     positron charge         (e)
