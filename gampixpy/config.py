@@ -6,6 +6,40 @@ import yaml
 import numpy as np
 
 class Config (dict):
+    """
+    Config(config_filename)
+
+    Initialize a new config dict from a yaml file.  This class serves
+    as the parent class for specialized config classes for detector,
+    physics, and readout parameter settings.  This class defines the
+    methods for reading specifications from the input, resolving units
+    to the internal unit scheme, and computing derived parameters,
+    returning a dict-like object containing all parameters and their values.
+
+    Parameters
+    ----------
+    config_filename : path_like
+        A string or os.path-like object pointing to a yaml file containing
+        definitions for parameters.
+
+    Returns
+    -------
+    out : Config
+        A dict-like object containing input and derived parameters.
+
+    See Also
+    --------
+    DetectorConfig : Sub-class for parsing parameters for detector geometry
+                     and steering.
+    PhysicsConfig : Sub-class for parsing parameters for physics processes
+                    (recombination, charge mobility, etc.)
+    ReadoutConfig : Sub-class for parsing parameters for readout details.
+
+    Examples
+    --------
+    >>> c = Config('path/to/config.yaml')
+
+    """
     def __init__(self, config_filename):
         self.config_filename = config_filename
 
@@ -38,13 +72,86 @@ class Config (dict):
         return resolved_dict
 
 class DetectorConfig (Config):
+    """
+    DetectorConfig(config_filename)
+
+    Initialize a new detector config dict from a yaml file.  This class
+    reads specifications from the input, resolves units to the internal
+    unit scheme, and computes derived parameters, returning a dict-like
+    object containing all parameters and their values.
+
+    Parameters
+    ----------
+    config_filename : path_like
+        A string or os.path-like object pointing to a yaml file containing
+        definitions for detector geometry parameters.
+
+    Returns
+    -------
+    out : DetectorConfig
+        A dict-like object containing input and derived parameters for
+        detector geometry.
+
+    See Also
+    --------
+    Config : Parent config class which does not computation of derived
+             parameters.
+    PhysicsConfig : Similar config class for parsing parameters for
+                    physics processes (recombination, charge mobility,
+                    etc.)
+    ReadoutConfig : Similar config class for parsing parameters for
+                    readout details.
+
+    Examples
+    --------
+    >>> dc = DetectorConfig('path/to/config.yaml')
+
+    """
     def compute_derived_parameters(self):
         # compute any required parameters from
         # those specified in the YAML
 
+        # nothing to compute yet!
+        # in the future, this should provide a method for coordinate
+        # system transforms between input, internal, and output coords
+
         return
 
 class PhysicsConfig (Config):
+    """
+    PhysicsConfig(config_filename)
+
+    Initialize a new pysics config dict from a yaml file.  This class
+    reads specifications from the input, resolves units to the internal
+    unit scheme, and computes derived parameters, returning a dict-like
+    object containing all parameters and their values.
+
+    Parameters
+    ----------
+    config_filename : path_like
+        A string or os.path-like object pointing to a yaml file containing
+        definitions for physics parameters.
+
+    Returns
+    -------
+    out : PhysicsConfig
+        A dict-like object containing input and derived parameters for
+        physics processes.
+
+    See Also
+    --------
+    Config : Parent config class which does not computation of derived
+             parameters.
+    DetectorConfig : Similar config class for parsing parameters for
+                     detector geometry and steering.
+    ReadoutConfig : Similar config class for parsing parameters for
+                    readout details.
+
+    Examples
+    --------
+    >>> pc = PhysicsConfig('path/to/config.yaml')
+
+    """
     def compute_derived_parameters(self):
         mobility_model = mobility.MobilityModel(self)
         self['charge_drift'].update(mobility_model.compute_parameters())
@@ -52,6 +159,41 @@ class PhysicsConfig (Config):
         return
 
 class ReadoutConfig (Config):
+    """
+    ReadoutConfig(config_filename)
+
+    Initialize a new readout config dict from a yaml file.  This class
+    reads specifications from the input, resolves units to the internal
+    unit scheme, and computes derived parameters, returning a dict-like
+    object containing all parameters and their values.
+
+    Parameters
+    ----------
+    config_filename : path_like
+        A string or os.path-like object pointing to a yaml file containing
+        definitions for readout parameters.
+
+    Returns
+    -------
+    out : ReadoutConfig
+        A dict-like object containing input and derived parameters for
+        readout electronics simulation.
+
+    See Also
+    --------
+    Config : Parent config class which does not computation of derived
+             parameters.
+    DetectorConfig : Similar config class for parsing parameters for
+                     detector geometry and steering.
+    PhysicsConfig : Similar config class for parsing parameters for
+                    physics processes (recombination, charge mobility,
+                    etc.)
+
+    Examples
+    --------
+    >>> rc = ReadoutConfig('path/to/config.yaml')
+
+    """
     def compute_derived_parameters(self):
         # compute any required parameters from
         # those specified in the YAML
