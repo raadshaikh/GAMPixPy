@@ -1,6 +1,38 @@
 from gampixpy.units import *
 
 class MobilityModel:
+    """
+    MobilityModel(physics_config)
+
+    Return a model object which can be called to compute mobility parameters
+    (charge mobility, diffusion constants, etc.) from a physics parameter
+    specification.
+
+    Parameters
+    ----------
+    physics_config : PhysicsConfig
+        A dict-like config object for physics params.
+
+    Returns
+    -------
+    out : dict
+        A dict object containing computed mobility parameters. This can be used
+        to update the physics config (as it is called by the PhysicsConfig init
+        method), or on its own.
+
+    Examples
+    --------
+    >>> physics_config = gampixpy.config.default_phsyics_params
+    >>> mobility_model = MobilityModel(physics_config)
+    >>> mobility_model.compute_parameters()
+    {'electron_mobility': 320.22680490595025,
+     'drift_energy': 2.069477981671871e-08,
+     'diffusion_longitudinal': 6.627023218939979e-06,
+     'diffusion_ratio': 0.5005312849756938,
+     'diffusion_transverse': 1.323997803506287e-05,
+     'drift_speed': 0.16011340245297512}
+
+    """
     def __init__(self, physics_config):
         self.physics_config = physics_config
 
