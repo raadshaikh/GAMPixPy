@@ -67,6 +67,12 @@ def main(args):
 
         detector_model.simulate(cloud_track, verbose = False)
 
+        # evd = plotting.EventDisplay(cloud_track)
+        # evd.plot_drifted_track_timeline(alpha = 0) # can also pass kwargs to plt.scatter
+        # evd.plot_coarse_tile_measurement_timeline(readout_config) # plot tile hits
+        # evd.plot_pixel_measurement_timeline(readout_config) # plot pixel hits
+        # evd.show()
+
         if args.output_file:
             om.add_entry(cloud_track, cloud_meta)
 
