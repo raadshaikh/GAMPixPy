@@ -83,7 +83,7 @@ class PointSource (Generator):
         """
         gen.generate_sample_params()
 
-        Sample from the distribution parameters.
+        Draw a new sample from the distribution parameters.
 
         Parameters
         ----------
