@@ -74,6 +74,23 @@ J = eV/e*C
 W = J/s
 
 def unit_parser(unit_string_expression):
+    """
+    unit_parser(unit_string_expression)
+
+    Parser function for converting unit string expressions into a
+    numerical representation based on the unit scheme defined in units.py
+    
+    Parameters
+    ----------
+    unit_string_expression : string
+        String expression of units, in the form of "cm*cm/us/MeV".
+
+    Returns
+    -------
+    unit_product : float
+        Numerical representation of the unit string provided.
+    
+    """
     # units need to be in formats like:
     # cm*cm/s
     # no carrot notation! (right now)
