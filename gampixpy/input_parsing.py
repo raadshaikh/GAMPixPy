@@ -20,6 +20,24 @@ meta_dtype =  np.dtype([("event id", "u4"),
                        align = True)
 
 class InputParser:
+    """
+    InputParser(input_filename,
+                sequential_sampling = True,
+                physics_config = default_physics_params)
+
+    Parent class for more specialized input parsers.
+
+    Attributes
+    ----------
+    physics_config : PhysicsConfig object
+        Physics configuration.  Some early physics processes are handled
+        by the input parser (for now!), such as charge/light yield
+        calculation.
+    input_filename : str or os.path-like
+        Path to the input data on disk.
+    sampling_order : array-like
+        Array describing the order for iterating through the input indices.
+    """
     def __init__(self, input_filename, sequential_sampling = True, physics_config = default_physics_params):
         self.physics_config = physics_config
         
@@ -27,8 +45,8 @@ class InputParser:
 
         self.sampling_order = []
 
-        self.open_file_handle()
-        self.generate_sample_order(sequential_sampling)
+        self._open_file_handle()
+        self._generate_sample_order(sequential_sampling)
 
     def __len__(self):
         if 'n_images' in dir(self):
@@ -41,10 +59,62 @@ class InputParser:
             yield sample_index.item(), self.get_sample(sample_index.item()), self.get_meta(sample_index.item())
 
 class SegmentParser (InputParser):
+    """
+    SegmentParser(input_filename,
+                sequential_sampling = True,
+                physics_config = default_physics_params)
+
+    Parent class for segment-based input parsers.  This class defines
+    methods for point sampline along segment-like inputs and recombination.
+
+    Attributes
+    ----------
+    physics_config : PhysicsConfig object
+        Physics configuration.  Some early physics processes are handled
+        by the input parser (for now!), such as charge/light yield
+        calculation.
+    input_filename : str or os.path-like
+        Path to the input data on disk.
+    sampling_order : array-like
+        Array describing the order for iterating through the input indices.
+    
+    """
     def do_recombination(self, dE, dx, dEdx, mode = 'birks', **kwargs):
-        if mode == 'box':
+        """
+        parser.do_recombination(dE, dx, dEdx, mode = 'birks', **kwargs)
+
+        Calculate the recombination factor from input segment attributes.
+
+        Parameters
+        ----------
+        dE : array-like[float]
+            Energy deposition (integrated) over the input segment.
+        dx : array-like[float]
+            Length of each input segment.
+        dEdx : array-like[float]
+            Energy-deposition density (average) over the input segment.
+            
+        mode : string
+            Recombination model to choose from.  Currently implemented are
+            'box' and 'birks'.
+
+        Returns
+        -------
+        n_electrons : array-like[float]
+            Charge yield in number of electrons for each segment described
+            in the input arrays.
+
+        See Also
+        --------
+        recombination.BoxRecombinationModel : Implementation of the Box
+            recombination model.
+        recombination.BirksRecombinationModel : Implementation of the Birks
+            recombination model.
+        
+        """
+        if mode.lower() == 'box':
             recombination_model = BoxRecombinationModel(self.physics_config)
-        elif mode == 'birks':
+        elif mode.lower() == 'birks':
             recombination_model = BirksRecombinationModel(self.physics_config)
         else:
             raise ValueError("Invalid recombination mode: must be 'physics.BOX' or 'physics.BRIKS'")
@@ -65,10 +135,46 @@ class SegmentParser (InputParser):
                           sample_density = 1.e-1,
                           sample_normalization = 'charge',
                           **kwargs):
-        # point sampling with a fixed number of samples per length
-        # it may be faster to do sampling another way (test in future!)
-        #  - sample with fixed amount of charge
-        #  - sample with fixed number of samples per segment
+        """
+        parser.do_point_sampling(start_4vec, end_4vec,
+                                 dx, charge_per_segment,
+                                 sample_density = 1.e-1,
+                                 sample_normalization = 'charge',
+                                 **kwargs)
+
+        Sample points along the segments described by the input arrays.
+
+        Parameters
+        ----------
+        start_4vec : array-like
+            (position, time) 4-vector array for the initial points of
+            the image segments.
+        end_4vec : array-like
+            (position, time) 4-vector array for the final points of
+            the image segments.
+        dx : array-like
+            Length array for the image segments.
+        charge_per_segment : array-like
+            Charge per segment array for the image segments.
+        sample_density : float
+            Density of samples.  Exact interpretation depends upon the
+            normalization method specified.
+        sample_normalization : str
+            Normalization method for choosing sample density:
+
+                'charge' : Using this method, sample_density has units
+                    of [samples/e].  The samples will therefore also
+                    have charge e/sample_density.
+                'length' : Using this method, sample_density has units
+                    of [samples/cm].  This method has the potential to
+                    ignore extremely small segments with high ionization.
+        
+        Returns
+        -------
+        sample_4vec : Interpolated points along the input segments.
+        charges : Charge values for each interpolated point.
+        
+        """
 
         segment_interval = end_4vec - start_4vec
 
@@ -90,7 +196,26 @@ class SegmentParser (InputParser):
         return sample_4vec, sample_charges
 
 class RooTrackerParser (SegmentParser):
-    def open_file_handle(self, **kwargs):
+    """
+    RooTrackerParser(input_filename,
+                     sequential_sampling = True,
+                     physics_config = default_physics_params)
+
+    Class for parsing inputs from ROOT (edep-sim output).
+
+    Attributes
+    ----------
+    physics_config : PhysicsConfig object
+        Physics configuration.  Some early physics processes are handled
+        by the input parser (for now!), such as charge/light yield
+        calculation.
+    input_filename : str or os.path-like
+        Path to the input data on disk.
+    sampling_order : array-like
+        Array describing the order for iterating through the input indices.
+    
+    """
+    def _open_file_handle(self, **kwargs):
         from ROOT import TFile, TG4Event
 
         self.file_handle = TFile(self.input_filename)
@@ -99,14 +224,14 @@ class RooTrackerParser (SegmentParser):
         self.event = TG4Event()
         self.inputTree.SetBranchAddress("Event", self.event)
 
-    def generate_sample_order(self, sequential_sampling, **kwargs):
+    def _generate_sample_order(self, sequential_sampling, **kwargs):
         self.n_images = self.inputTree.GetEntriesFast()
         if sequential_sampling:
             self.sampling_order = torch.arange(self.n_images)
         else:
             self.sampling_order = torch.randperm(self.n_images)
 
-    def get_G4_sample(self, sample_index, **kwargs):
+    def _get_G4_sample(self, sample_index, **kwargs):
         self.inputTree.GetEntry(sample_index, **kwargs)
 
         start_4vec = torch.empty((0,4))
@@ -146,7 +271,7 @@ class RooTrackerParser (SegmentParser):
         
         return Track(charge_4vec, charge_values)
 
-    def get_G4_meta(self, sample_index, **kwargs):
+    def _get_G4_meta(self, sample_index, **kwargs):
         primary_vertex = self.event.Primaries[0] # assume only one primary for now
 
         vertex_x = primary_vertex.GetPosition().X()*mm
@@ -176,20 +301,53 @@ class RooTrackerParser (SegmentParser):
         return meta_array
 
     def get_sample(self, index, **kwargs):
-        return self.get_G4_sample(index, **kwargs)
+        """
+        parser.get_sample(index, **kwargs)
+
+        Get the sample image from the loaded file
+
+        Parameters
+        ----------
+        index : int
+            Index (in the file's internal scheme) of the sample to retrieve.
+
+        Returns
+        -------
+        sample : Track object
+            Return the loaded image as a point-sampled track object.
+        
+        """
+        return self._get_G4_sample(index, **kwargs)
 
     def get_meta(self, index, **kwargs):
-        return self.get_G4_meta(index, **kwargs)
+        """
+        parser.get_meta(index, **kwargs)
+
+        Get the metadata from the loaded file
+
+        Parameters
+        ----------
+        index : int
+            Index (in the file's internal scheme) of the sample to retrieve.
+
+        Returns
+        -------
+        meta_array : array-like[float]
+            Return an array containing the metadata for this sample.  The dtype
+            of this array is defined in meta_dtype, above.
+        
+        """
+        return self._get_G4_meta(index, **kwargs)
 
 class EdepSimParser (SegmentParser):
     # Unit conventions for edepsim inputs:
     # distance: cm
     # energy: MeV
-    def open_file_handle(self, **kwargs):
+    def _open_file_handle(self, **kwargs):
         import h5py
         self.file_handle = h5py.File(self.input_filename, **kwargs)
 
-    def generate_sample_order(self, sequential_sampling, **kwargs):
+    def _generate_sample_order(self, sequential_sampling, **kwargs):
         unique_event_ids = np.unique(self.file_handle['trajectories']['eventID']).astype(np.int32)
         # unique_event_ids = torch.tensor(unique_event_ids, dtype = torch.int32)
         self.n_images = len(unique_event_ids)
@@ -198,7 +356,7 @@ class EdepSimParser (SegmentParser):
         else:
             self.sampling_order = torch.tensor(unique_event_ids[torch.randperm(self.n_images)])
         
-    def get_edepsim_event(self, sample_index, **kwargs):
+    def _get_edepsim_event(self, sample_index, **kwargs):
         segment_mask = self.file_handle['segments']['eventID'] == sample_index
         event_segments = self.file_handle['segments'][segment_mask]
 
@@ -229,7 +387,7 @@ class EdepSimParser (SegmentParser):
                                                             )
         return Track(charge_4vec, charge_values)
     
-    def get_edepsim_meta(self, sample_index, **kwargs):
+    def _get_edepsim_meta(self, sample_index, **kwargs):
         trajectory_mask = self.file_handle['trajectories']['eventID'] == sample_index
         event_trajectories = self.file_handle['trajectories'][trajectory_mask]
         primary_trajectory = event_trajectories[event_trajectories['parentID'] == -1]
@@ -256,21 +414,54 @@ class EdepSimParser (SegmentParser):
         return meta_array
         
     def get_sample(self, index, **kwargs):
-        return self.get_edepsim_event(index, **kwargs)
+        """
+        parser.get_sample(index, **kwargs)
+
+        Get the sample image from the loaded file
+
+        Parameters
+        ----------
+        index : int
+            Index (in the file's internal scheme) of the sample to retrieve.
+
+        Returns
+        -------
+        sample : Track object
+            Return the loaded image as a point-sampled track object.
+        
+        """
+        return self._get_edepsim_event(index, **kwargs)
 
     def get_meta(self, index, **kwargs):
-        return self.get_edepsim_meta(index, **kwargs)
+                """
+        parser.get_meta(index, **kwargs)
+
+        Get the metadata from the loaded file
+
+        Parameters
+        ----------
+        index : int
+            Index (in the file's internal scheme) of the sample to retrieve.
+
+        Returns
+        -------
+        meta_array : array-like[float]
+            Return an array containing the metadata for this sample.  The dtype
+            of this array is defined in meta_dtype, above.
+        
+        """
+        return self._get_edepsim_meta(index, **kwargs)
 
 class MarleyParser (SegmentParser):
     # BROKEN
     # revisit this later
-    def open_file_handle(self):
+    def _open_file_handle(self):
         from ROOT import TFile
 
         self.file_handle = TFile(self.input_filename)
         self.inputTree = self.file_handle.Get("edep")
 
-    def generate_sample_order(self, sequential_sampling):
+    def _generate_sample_order(self, sequential_sampling):
         event_ids = []
         for entry in self.inputTree:
             event_ids.append(entry.event)
@@ -283,7 +474,7 @@ class MarleyParser (SegmentParser):
                                                    len(unique_event_ids),
                                                    replace = False)
     
-    def get_G4_sample(self, sample_index):
+    def _get_G4_sample(self, sample_index):
         segment_dtype = np.dtype([("x_start", "f4"),
                                   ("y_start", "f4"),
                                   ("z_start", "f4"),
@@ -331,7 +522,7 @@ class MarleyParser (SegmentParser):
 
         return Track(charge_points, charge_values)
 
-    def get_G4_meta(self, sample_index):
+    def _get_G4_meta(self, sample_index):
         meta_array = np.array([(sample_index,
                                 -1, # KE undefined
                                 -1, # charge undefined
@@ -343,13 +534,46 @@ class MarleyParser (SegmentParser):
         return meta_array
 
     def get_sample(self, index):
+        """
+        parser.get_sample(index, **kwargs)
+
+        Get the sample image from the loaded file
+
+        Parameters
+        ----------
+        index : int
+            Index (in the file's internal scheme) of the sample to retrieve.
+
+        Returns
+        -------
+        sample : Track object
+            Return the loaded image as a point-sampled track object.
+        
+        """
         return self.get_G4_sample(index)
 
     def get_meta(self, index):
+        """
+        parser.get_meta(index, **kwargs)
+
+        Get the metadata from the loaded file
+
+        Parameters
+        ----------
+        index : int
+            Index (in the file's internal scheme) of the sample to retrieve.
+
+        Returns
+        -------
+        meta_array : array-like[float]
+            Return an array containing the metadata for this sample.  The dtype
+            of this array is defined in meta_dtype, above.
+        
+        """
         return self.get_G4_meta(index)
 
 class MarleyCSVParser (SegmentParser):
-    def open_file_handle(self):
+    def _open_file_handle(self):
         self.col_names = ('run', 'subrun', 'event',
                           'isSignal', 'pdgCode', 'trackID',
                           'motherID', 'startE', 'dE',
@@ -374,7 +598,7 @@ class MarleyCSVParser (SegmentParser):
                                               'formats': self.col_types},
                                      )
 
-    def generate_sample_order(self, sequential_sampling):
+    def _generate_sample_order(self, sequential_sampling):
 
         unique_event_ids = np.unique(self.data_table['event']).astype(np.int32)
         if sequential_sampling:
@@ -382,7 +606,7 @@ class MarleyCSVParser (SegmentParser):
         else:
             self.sampling_order = torch.tensor(unique_event_ids[torch.randperm(len(unique_event_ids))])
 
-    def get_CSV_sample(self, sample_index):
+    def _get_CSV_sample(self, sample_index):
         event_mask = self.data_table['event'] == sample_index
         event_rows = self.data_table[event_mask]
         
@@ -421,7 +645,7 @@ class MarleyCSVParser (SegmentParser):
                                                             )
         return Track(charge_4vec, charge_values)
 
-    def get_CSV_meta(self, sample_index):
+    def _get_CSV_meta(self, sample_index):
         event_mask = self.data_table['event'] == sample_index
         event_rows = self.data_table[event_mask]
 
@@ -442,10 +666,43 @@ class MarleyCSVParser (SegmentParser):
         return meta_array
 
     def get_sample(self, index):
-        return self.get_CSV_sample(index)
+        """
+        parser.get_sample(index, **kwargs)
+
+        Get the sample image from the loaded file
+
+        Parameters
+        ----------
+        index : int
+            Index (in the file's internal scheme) of the sample to retrieve.
+
+        Returns
+        -------
+        sample : Track object
+            Return the loaded image as a point-sampled track object.
+        
+        """
+        return self._get_CSV_sample(index)
 
     def get_meta(self, index):
-        return self.get_CSV_meta(index)
+        """
+        parser.get_meta(index, **kwargs)
+
+        Get the metadata from the loaded file
+
+        Parameters
+        ----------
+        index : int
+            Index (in the file's internal scheme) of the sample to retrieve.
+
+        Returns
+        -------
+        meta_array : array-like[float]
+            Return an array containing the metadata for this sample.  The dtype
+            of this array is defined in meta_dtype, above.
+        
+        """
+        return self._get_CSV_meta(index)
 
 class PenelopeParser (InputParser):
     # BROKEN
@@ -454,26 +711,61 @@ class PenelopeParser (InputParser):
     # def __init__(self, *args, **kwargs):
     #     super().__init__(*args, **kwargs)
     
-    def open_file_handle(self):
+    def _open_file_handle(self):
         # import h5py
         # self.file_handle = h5py.File(self.input_filename)
         return 
 
-    def generate_sample_order(self, sequential_sampling):
+    def _generate_sample_order(self, sequential_sampling):
         # self.n_images = len(np.unique(self.file_handle['trajectories']['eventID']))
         return 
         
-    def get_penelope_sample(self):
-        print ("wowzers")
-        print (self.input_filename)
+    def _get_penelope_sample(self):
+        # do the magic that lets you read from a penelope file
+        return None
+
+    def _get_penelope_meta(self):
         # do the magic that lets you read from a penelope file
         return None
 
     def get_sample(self, index):
-        return self.get_penelope_sample(index)
+        """
+        parser.get_sample(index, **kwargs)
+
+        Get the sample image from the loaded file
+
+        Parameters
+        ----------
+        index : int
+            Index (in the file's internal scheme) of the sample to retrieve.
+
+        Returns
+        -------
+        sample : Track object
+            Return the loaded image as a point-sampled track object.
+        
+        """
+        return self._get_penelope_sample(index)
     
     def get_meta(self, index):
-        return None
+        """
+        parser.get_meta(index, **kwargs)
+
+        Get the metadata from the loaded file
+
+        Parameters
+        ----------
+        index : int
+            Index (in the file's internal scheme) of the sample to retrieve.
+
+        Returns
+        -------
+        meta_array : array-like[float]
+            Return an array containing the metadata for this sample.  The dtype
+            of this array is defined in meta_dtype, above.
+        
+        """
+        return self._get_penelope_meta(index)
 
 parser_dict = {'root': RooTrackerParser,
                'edepsim': EdepSimParser,
