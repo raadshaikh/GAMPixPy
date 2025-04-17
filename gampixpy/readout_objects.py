@@ -16,6 +16,28 @@ pixel_dtype = np.dtype([("event id", "u4"),
                        align = True)
 
 class PixelSample:
+    """
+    PixelSample(pixel_pos,
+                hit_timestamp,
+                hit_depth,
+                hit_measurement)
+
+    Data container class for pixel samples.
+
+    Attributes
+    ----------
+    pixel_pos : tuple(float, float)
+        Position in anode coordinates (x, y) of pixel center.
+    hit_timestamp : float
+        Timestamp associated with hit.  Depending on the hit finding
+        method used, this may be the time of theshold crossing or the
+        time of digitization.
+    hit_depth : float
+        Estimated depth assiciated with this hit.  This is usually just
+        arrival_time*v_drift, and so ignores some details of hit finding.
+    hit_measurement : float
+        Measured charge (or correlate) for this hit.
+    """
     def __init__(self,
                  pixel_pos,
                  # pixel_ind,
@@ -29,6 +51,28 @@ class PixelSample:
         self.hit_measurement = hit_measurement
 
 class CoarseGridSample:
+    """
+    CoarseGridSample(pixel_pos,
+                     hit_timestamp,
+                     hit_depth,
+                     hit_measurement)
+
+    Data container class for coarse tile samples.
+
+    Attributes
+    ----------
+    coarse_cell_pos : tuple(float, float)
+        Position in anode coordinates (x, y) of the tile center.
+    coarse_measurement_time : float
+        Timestamp associated with hit.  Depending on the hit finding
+        method used, this may be the time of theshold crossing or the
+        time of digitization.
+    measurement_depth : float
+        Estimated depth assiciated with this hit.  This is usually just
+        arrival_time*v_drift, and so ignores some details of hit finding.
+    coarse_cell_measurement : float
+        Measured charge (or correlate) for this hit.
+    """
     def __init__(self,
                  coarse_cell_pos,
                  # coarse_cell_ind,
