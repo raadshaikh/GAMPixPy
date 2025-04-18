@@ -198,10 +198,12 @@ class EdepSimParser (SegmentParser):
         else:
             self.sampling_order = torch.tensor(unique_event_ids[torch.randperm(self.n_images)])
         
-    def get_edepsim_event(self, sample_index, **kwargs):
+    def get_edepsim_event(self, sample_index, pdg_selection=None, **kwargs):
         segment_mask = self.file_handle['segments']['eventID'] == sample_index
+        if pdg_selection:
+            event_mask *= self.file_handle['segments']['pdgId'] == pdg_selection
         event_segments = self.file_handle['segments'][segment_mask]
-
+      
         trajectory_mask = self.file_handle['trajectories']['eventID'] == sample_index
         event_trajectories = self.file_handle['trajectories'][trajectory_mask]
 
