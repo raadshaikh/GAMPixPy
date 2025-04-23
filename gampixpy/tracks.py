@@ -3,16 +3,60 @@ import numpy as np
 from gampixpy.readout_objects import coarse_tile_dtype, pixel_dtype
 
 class Track:
+    """
+    Track (sample_4vec, sample_charges)
+
+    General-purpose data class for storing representations of an
+    ionization event in the detector.
+
+    Attributes
+    ----------
+
+    raw_track : dict
+        Dict containing sample position 4-vectors (key: '4vec') and
+        sample charge values (key 'charge').  Both are array-like.
+    drifted_track : dict
+        Dict containing sample position 3-vectors ('position'), sample
+        arrival times ('times') and charge after attenuation ('charge').
+    pixel_samples : list[CoarseGridSample]
+        List of coarse tile hits found by detector simulation.
+    coarse_tiles_samples : list[PixelSample]
+        List of pixel hits found by detector simulation.
+
+    See Also
+    --------
+    PixelSample : Data class for pixel hits.
+    CoarseTileSample : Data class for tile hits.
+    
+    """
     def __init__(self, sample_4vec, sample_charges):
         self.raw_track = {'4vec': sample_4vec,
                           'charge': sample_charges}
 
         self.drifted_track = {}
 
-        self.pixel_samples = {}
-        self.coarse_tiles_samples = {}
+        self.pixel_samples = []
+        self.coarse_tiles_samples = []
 
     def to_array(self):
+        """
+        track.to_array()
+
+        Generate a numpy array with the simulated hit data contained
+        in this object for saving to a summary HDF5 file.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        coarse_tile_sample_array : Flattened numpy.array of coarse hit
+            data with dtype described in readout_objects.coarse_tile_dtype.
+        pixel_sample_array : Flattened numpy.array of pixel hit data with
+            dtype described in readout_objects.coarse_tile_dtype.
+
+        """
         coarse_tile_sample_array = np.array([(0,
                                               hit.coarse_cell_pos[0],
                                               hit.coarse_cell_pos[1],
@@ -29,11 +73,3 @@ class Track:
                                       dtype = pixel_dtype)
 
         return coarse_tile_sample_array, pixel_sample_array
-
-# this seems to be relevant only for specific inputs
-# let's not use this for now
-# class Segment:
-#     def __init__(self, start_position, end_position, energy):
-#         self.start_position = start_position
-#         self.end_position = end_position
-#         self.ionization_energy = energy
