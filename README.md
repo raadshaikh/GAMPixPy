@@ -16,6 +16,36 @@ Installation should be handled by `pip` and `setuptools`.  To install the packag
 pip install gampixpy
 ```
 
+### on S3DF
+
+If you are a SLAC collaborator, you may have access to [S3DF](s3df.slac.stanford.edu).  In this case, getting up and running with GAMPixPy is extremely simple:
+
+#### Terminal Interface
+
+From a terminal connection (e.g. using `ssh`), first start an interactive compute session using `srun`:
+
+From a `neutrino` host, you may
+```
+/opt/slurm/slurm-curr/bin/srun -p ampere --account neutrino:default --gpus 1 --mem-per-cpu=10G --ntasks=1 --cpus-per-task=8 --pty /bin/bash
+```
+
+Next, load a singularity container:
+```
+singularity exec --nv -B /sdf,/lscratch /sdf/group/neutrino/images/latest.sif $SHELL
+```
+
+Then, simply install GAMPixPy and the remaining requirements using `pip`:
+```
+pip install gampixpy
+```
+
+#### Jupyter Interface
+
+From S3DF ondemand, create a new Jupyter session using "Jupyter Image": "neutrino", "neutrino-jupyter/latest".  The resulting Jupyter session should have both external requirements (ROOT and torch) ready to go.  Then, in any cell, simply install GAMPixPy and the remaining requirements using `pip`:
+```
+pip install gampixpy
+```
+
 ### Minimal Simulation Example
 
 An implementation of the simulation workflow is shown in `gampixpy/gampix_sim.py`
