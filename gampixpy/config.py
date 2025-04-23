@@ -43,10 +43,10 @@ class Config (dict):
     def __init__(self, config_filename):
         self.config_filename = config_filename
 
-        self.parse_config()
-        self.compute_derived_parameters()
+        self._parse_config()
+        self._compute_derived_parameters()
         
-    def parse_config(self):
+    def _parse_config(self):
         # parse a config (yaml) file and store values
         # internally as a dict
         with open(self.config_filename) as config_file:
@@ -54,9 +54,9 @@ class Config (dict):
 
         # where quantities with units are specified,
         # resolve them to the internal unit system
-        self.update(self.resolve_units(self))
+        self.update(self._resolve_units(self))
 
-    def resolve_units(self, sub_dict):
+    def _resolve_units(self, sub_dict):
         if 'value' in sub_dict and 'unit' in sub_dict:
             numerical_value = sub_dict['value']
             unit = units.unit_parser(sub_dict['unit'])
@@ -65,7 +65,7 @@ class Config (dict):
             resolved_dict = {}
             for key, value in sub_dict.items():
                 if type(value) == dict:
-                    resolved_dict[key] = self.resolve_units(value)
+                    resolved_dict[key] = self._resolve_units(value)
                 else:
                     resolved_dict[key] = value
 
@@ -107,7 +107,7 @@ class DetectorConfig (Config):
     >>> dc = DetectorConfig('path/to/config.yaml')
 
     """
-    def compute_derived_parameters(self):
+    def _compute_derived_parameters(self):
         # compute any required parameters from
         # those specified in the YAML
 
@@ -152,7 +152,7 @@ class PhysicsConfig (Config):
     >>> pc = PhysicsConfig('path/to/config.yaml')
 
     """
-    def compute_derived_parameters(self):
+    def _compute_derived_parameters(self):
         mobility_model = mobility.MobilityModel(self)
         self['charge_drift'].update(mobility_model.compute_parameters())
 
@@ -194,7 +194,7 @@ class ReadoutConfig (Config):
     >>> rc = ReadoutConfig('path/to/config.yaml')
 
     """
-    def compute_derived_parameters(self):
+    def _compute_derived_parameters(self):
         # compute any required parameters from
         # those specified in the YAML
 

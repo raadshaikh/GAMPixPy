@@ -6,15 +6,56 @@ import torch
 import torchist
 
 class ReadoutModel:
+    """
+    ReadoutModel(readout_config)
+
+    Parent class for readout models.  This class defines the process of
+    taking drifted point clouds and forming current series for each coarse
+    tile and pixel in the volume (for some defined tile/pixel response model).
+
+    Attributes
+    ----------
+    readout_config : ReadoutConfig object
+        Config object containing specifications for tile and pixel size, gaps,
+        threshold, noise, etc.
+    clock_start_time : float
+        timestamp of the earliest arriving charge bundle.  This serves as the
+        first clock tick of the event readout.
+    coarse_tile_hits : array-like[CoarseTileHit]
+        Array of coarse tile hits populated by tile_hit_finding method
+    fine_pixel_hits : array-like[CoarseTileHit]
+        Array of pixel hits populated by pixel_hit_finding method
+
+    Notes
+    -----
+    tile_hit_finding and pixel_hit_finding methods are implemented by sub-classes.
+
+    See Also
+    --------
+    GAMPixModel : Sub-class implementing a GAMPix-like hit-finding scheme.
+    LArPixModel : Sub-class implementing a LArPix-like hit-finding scheme.    
+
+    """
     def __init__(self, readout_config = default_readout_params):
         self.readout_config = readout_config
+        self.clock_start_time = 0
 
     def electronics_simulation(self, track, verbose = True, **kwargs):
-        # apply the electronics response simulation to
-        # a track containing a drifted charge sample
+        """
+        readout.electronics_simulation(track,
+                                       verbose = True,
+                                       **kwargs)
 
-        # time of first charge arrival
-        # this is the start point for coarse current building
+        Steering function for the individual steps of electronics simulation.
+
+        Parameters
+        ----------
+        track : Track object
+            Input event representation containing a populated drifted_track.
+        verbose : bool
+            Print update messages as simulation progresses through each stage.
+        
+        """
         try:
             self.clock_start_time = torch.min(track.drifted_track['times'])
         except RuntimeError:
@@ -50,8 +91,28 @@ class ReadoutModel:
 
     def point_sample_tile_current(self, tile_coord, track, sample_mask):
         """
-        return a sparse timeseries for each input position
-        positions are relative to the tile center
+        readout.point_sample_tile_current(tile_coord,
+                                          track,
+                                          sample_mask)
+
+        From the array of arrival times and charges, build a stacked array of
+        charge response and time ticks.
+
+        Parameters
+        ----------
+        tile_coord : tuple(float, float)
+            The (x, y) (anode) coordinates of a given tile.
+        track : Track object
+            A track which has already had drift applied.
+        sample_mask : array-like[bool]
+            A boolean mask specifying which point sample charges will have
+            a non-negligible induction on the tile of interest.
+
+        Returns
+        -------
+        stacked_induced_charge : array-like
+            A stacked array of timestamps and instantaneous charge.  Shape: (2, N_samples).
+
         """
         # for now, return the entire charge with the time of arrival
         # really, should return a sparse timeseries informed by FEM
@@ -83,7 +144,23 @@ class ReadoutModel:
     
     def compose_tile_currents(self, sparse_current_series):
         """
-        combine multiple sparse timeseries into a single dense timeseries
+        readout.compose_tile_currents(sparse_current_series)
+
+        Combine multiple sparse timeseries into a single dense timeseries.
+
+        Parameters
+        ----------
+        sparse_current_series : array-like
+            Stacked array (shape: (2, N_samples)) containing sparse timeseries data.
+            Expected array is output from readout.point_sample_tile_current.
+        
+        Returns
+        -------
+        clock_ticks : array-like
+            Array of timestamps at the beginning of each clock cycle.
+        induced_charge : array-like
+            Array of integrated charge induced on pixel within each clock cycle.
+        
         """
         last_charge_arrival_time = torch.max(sparse_current_series[0,:,:])
         # when there is only one charge sample in a coarse cell's field
@@ -105,8 +182,28 @@ class ReadoutModel:
         
     def tile_receptive_field(self, tile_coord, track, n_neighbor_tiles = 0, **kwargs):
         """
-        For each tile, select the track samples within the
-        tile's receptive field
+        readout.tile_receptive_field(tile_coord,
+                                     track,
+                                     n_neightbor_tiles = 0)
+        
+        For each tile, select the track samples within the tile's receptive field.
+
+        Parameters
+        ----------
+        tile_coord : tuple(float, float)
+            The (x, y) (anode) coordinates of a given tile.
+        track : Track object
+            A track which has already had drift applied.
+        n_neighbor_tiles : int
+            The number of adjacent tiles to include (1 means include the 8 adjacent
+            and semi-adjacent tiles surrounding the provided tile coord).
+
+        Returns
+        -------
+        sample_mask : array-like[bool]
+            A boolean array with the same shape as the number of point samples
+            contained in the `track` argument.
+        
         """
 
         position = track.drifted_track['position']
@@ -121,7 +218,21 @@ class ReadoutModel:
 
     def tile_current_builder(self, track, **kwargs):
         """
-        Build the current timeseries for each tile
+        readout.tile_current_builder(track, **kwargs)
+
+        Build the current timeseries for each tile.
+
+        Parameters
+        ----------
+        track : Track obect
+            Input event representation containing a populated drited_track.
+
+        Returns
+        -------
+        coarse_grid_timeseries : dict{tuple: array-like}
+            Dictionary of charge timeseries for tiles in detector which measure
+            some charge.
+        
         """
         min_tile = torch.tensor([self.readout_config['anode']['x_lower_bound'],
                                  self.readout_config['anode']['y_lower_bound'],
@@ -159,8 +270,28 @@ class ReadoutModel:
 
     def point_sample_pixel_current(self, pixel_coord, track, sample_mask):
         """
-        return a sparse timeseries for each input position
-        positions are relative to the pixel center
+        readout.point_sample_pixel_current(tile_coord,
+                                           track,
+                                           sample_mask)
+
+        Build a sparse timeseries for each input position.  Positions are
+        relative to the pixel center.
+
+        Parameters
+        ----------
+        pixel_coord : tuple(float, float)
+            The (x, y) (anode) coordinates of a given pixel.
+        track : Track object
+            A track which has already had drift applied.
+        sample_mask : array-like[bool]
+            A boolean mask specifying which point sample charges will have
+            a non-negligible induction on the pixel of interest.
+
+        Returns
+        -------
+        stacked_induced_charge : array-like
+            A stacked array of timestamps and instantaneous charge.  Shape: (2, N_samples).
+
         """
         # for now, return the entire charge with the time of arrival
         # really, should return a sparse timeseries informed by FEM
@@ -191,7 +322,25 @@ class ReadoutModel:
 
     def compose_pixel_currents(self, sparse_current_series, coarse_cell_hit):
         """
-        combine multiple sparse timeseries into a single dense timeseries
+        readout.compose_pixel_currents(sparse_current_series, coarse_cell_hit)
+
+        Combine multiple sparse timeseries into a single dense timeseries.
+
+        Parameters
+        ----------
+        sparse_current_series : array-like
+            Stacked array (shape: (2, N_samples)) containing sparse timeseries data.
+            Expected array is output from readout.point_sample_tile_current.
+        coarse_cell_hit : CoarseGridSample object
+            The coarse cell hit inside which this pixel lies.
+        
+        Returns
+        -------
+        clock_ticks : array-like
+            Array of timestamps at the beginning of each clock cycle.
+        induced_charge : array-like
+            Array of integrated charge induced on pixel within each clock cycle.
+        
         """
         cell_clock_start = coarse_cell_hit.coarse_measurement_time
         cell_clock_end = coarse_cell_hit.coarse_measurement_time + self.readout_config['coarse_tiles']['clock_interval']*self.readout_config['coarse_tiles']['integration_length']
@@ -211,8 +360,28 @@ class ReadoutModel:
 
     def pixel_receptive_field(self, pixel_coord, track, n_neighbor_pixels = 0, **kwargs):
         """
-        For each tile, select the track samples within the
-        tile's receptive field
+        readout.tile_receptive_field(pixel_coord,
+                                     track,
+                                     n_neightbor_pixels = 0)
+        
+        For each tile, select the track samples within the pixel's receptive field
+
+        Parameters
+        ----------
+        pixel_coord : tuple(float, float)
+            The (x, y) (anode) coordinates of a given pixel.
+        track : Track object
+            A track which has already had drift applied.
+        n_neighbor_pixels : int
+            The number of adjacent pixels to include (1 means include the 8 adjacent
+            and semi-adjacent pixels surrounding the provided pixel coord).
+
+        Returns
+        -------
+        sample_mask : array-like[bool]
+            A boolean array with the same shape as the number of point samples
+            contained in the `track` argument.
+        
         """
 
         position = track.drifted_track['position']
@@ -226,6 +395,25 @@ class ReadoutModel:
         return sample_mask 
     
     def pixel_current_builder(self, track, coarse_tile_hits, **kwargs):
+        """
+        readout.pixel_current_builder(track, coarse_tile_hits, **kwargs)
+
+        Build the current timeseries for each pixel.
+
+        Parameters
+        ----------
+        track : Track obect
+            Input event representation containing a populated drited_track.
+        coarse_tile_hits : list[CoarseGridSample]
+            List of found coarse hits.
+
+        Returns
+        -------
+        pixel_timeseries : dict{tuple: array-like}
+            Dictionary of charge timeseries for pixels in detector which measure
+            some charge.
+        
+        """
         pixel_timeseries = {}
         
         tile_pitch = self.readout_config['coarse_tiles']['pitch']
@@ -289,11 +477,60 @@ class ReadoutModel:
         return pixel_timeseries
 
 class GAMPixModel (ReadoutModel):
+    """
+    GAMPixModel(readout_config)
+
+    Implementation of hit-finding logic for a GAMPix-style pixel plane.  This
+    model uses a periodic measurement scheme, with a per-pixel threshold for
+    digitization and recording of accumulated charge.
+
+    Attributes
+    ----------
+    readout_config : ReadoutConfig object
+        Config object containing specifications for tile and pixel size, gaps,
+        threshold, noise, etc.
+    clock_start_time : float
+        timestamp of the earliest arriving charge bundle.  This serves as the
+        first clock tick of the event readout.
+    coarse_tile_hits : array-like[CoarseTileHit]
+        Array of coarse tile hits populated by tile_hit_finding method
+    fine_pixel_hits : array-like[CoarseTileHit]
+        Array of pixel hits populated by pixel_hit_finding method
+
+    See Also
+    --------
+    ReadoutModel : Parent class for readout models, in which the general scheme
+        for charge simulation is implemented.
+    LArPixModel : Sub-class implementing a LArPix-like hit-finding scheme.    
+    
+    """
     def tile_hit_finding(self, track, tile_timeseries, nonoise = False, **kwargs):
         """
+        readout.tile_hit_finding(track,
+                                 tile_timeseries,
+                                 nonoise = False,
+                                 **kwargs)
+
         This method of hit finding simply looks for a quantity
         of charge above threshold within a given z-bin
-        (corresponding to a clock_period*integration_length)
+        (corresponding to a clock_period*integration_length).
+
+        Parameters
+        ----------
+        track : Track object
+            Input event representation containing a populated drifted track.
+        tile_timeseries : array-like
+            Array containing charge timeseries on a given tile.
+        nonoise : bool
+            Simulate front-end noise during the hit finding process.  Disable
+            to simulate the mean behavior for this signal (useful for
+            hypothesis testing).
+
+        Returns
+        -------
+        hits : list[CoarseTileSample]
+            List of found hits on the coarse tiles.
+        
         """
         # TODO: fix logic for integration_length > 1
         hits = []
@@ -342,10 +579,32 @@ class GAMPixModel (ReadoutModel):
 
     def pixel_hit_finding(self, track, pixel_timeseries, nonoise = False, **kwargs):
         """
+        readout.pixel_hit_finding(track,
+                                  tile_timeseries,
+                                  nonoise = False,
+                                  **kwargs)
+
         This method of hit finding records the charge on a pixel
         to a capacitor buffer at each time tick.
         If the total charge collected is above a threshold,
         digitize each measurement
+
+        Parameters
+        ----------
+        track : Track object
+            Input event representation containing a populated drifted track.
+        pixel_timeseries : array-like
+            Array containing charge timeseries on a given pixel.
+        nonoise : bool
+            Simulate front-end noise during the hit finding process.  Disable
+            to simulate the mean behavior for this signal (useful for
+            hypothesis testing).
+
+        Returns
+        -------
+        hits : list[PixelSample]
+            List of found hits on the pixel.
+        
         """
         hits = []
         
@@ -373,11 +632,61 @@ class GAMPixModel (ReadoutModel):
         return hits 
 
 class LArPixModel (ReadoutModel):
+    """
+    LArPixModel(readout_config)
+
+    Implementation of hit-finding logic for a LArPix-style pixel plane.  This
+    model uses a threshold and buffer measurement scheme, where charge is allowed
+    to accumulate for a fixed number of clock cycles after threshold crossing
+    before digitization and flushing.
+
+    Attributes
+    ----------
+    readout_config : ReadoutConfig object
+        Config object containing specifications for tile and pixel size, gaps,
+        threshold, noise, etc.
+    clock_start_time : float
+        timestamp of the earliest arriving charge bundle.  This serves as the
+        first clock tick of the event readout.
+    coarse_tile_hits : array-like[CoarseTileHit]
+        Array of coarse tile hits populated by tile_hit_finding method
+    fine_pixel_hits : array-like[CoarseTileHit]
+        Array of pixel hits populated by pixel_hit_finding method
+
+    See Also
+    --------
+    ReadoutModel : Parent class for readout models, in which the general scheme
+        for charge simulation is implemented.
+    GAMPixModel : Sub-class implementing a GAMPix-like hit-finding scheme.
+    
+    """
     def tile_hit_finding(self, track, tile_timeseries, nonoise = False, **kwargs):
         """
+        readout.tile_hit_finding(track,
+                                 tile_timeseries,
+                                 nonoise = False,
+                                 **kwargs)
+
         This method of hit finding simply looks for a quantity
         of charge above threshold within a given z-bin
         (corresponding to a clock_period*integration_length)
+        
+        Parameters
+        ----------
+        track : Track object
+            Input event representation containing a populated drifted track.
+        tile_timeseries : array-like
+            Array containing charge timeseries on a given tile.
+        nonoise : bool
+            Simulate front-end noise during the hit finding process.  Disable
+            to simulate the mean behavior for this signal (useful for
+            hypothesis testing).
+
+        Returns
+        -------
+        hits : list[CoarseTileSample]
+            List of found hits on the coarse tiles.
+        
         """
         # TODO: fix logic for integration_length > 1
         hits = []
@@ -426,9 +735,31 @@ class LArPixModel (ReadoutModel):
 
     def pixel_hit_finding(self, track, pixel_timeseries, nonoise = False, **kwargs):
         """
+        readout.pixel_hit_finding(track,
+                                  tile_timeseries,
+                                  nonoise = False,
+                                  **kwargs)
+
         This method of hit finding simply looks for a quantity
         of charge above threshold within a given z-bin
         (corresponding to a clock_period*integration_length)
+        
+        Parameters
+        ----------
+        track : Track object
+            Input event representation containing a populated drifted track.
+        pixel_timeseries : array-like
+            Array containing charge timeseries on a given pixel.
+        nonoise : bool
+            Simulate front-end noise during the hit finding process.  Disable
+            to simulate the mean behavior for this signal (useful for
+            hypothesis testing).
+
+        Returns
+        -------
+        hits : list[PixelSample]
+            List of found hits on the pixel.
+        
         """
         hits = []
         
@@ -477,6 +808,22 @@ class LArPixModel (ReadoutModel):
         return hits 
 
 class DetectorModel:
+    """
+    DetectorModel(detector_params,
+                  physics_params,
+                  readout_params)
+
+    Detector model class.  This class defines the overall flow of simulation for
+    charges within the detector volume.
+
+    Attributes
+    ----------
+    detector_params : DetectorConfig
+    physics_params : PhysicsConfig
+    readout_params : ReadoutConfig
+    readout_model : ReadoutModel object
+    
+    """
     def __init__(self,
                  detector_params = default_detector_params,
                  physics_params = default_physics_params,
@@ -488,14 +835,34 @@ class DetectorModel:
         # self.readout_model = LArPixModel(readout_params)
  
     def simulate(self, track, **kwargs):
+        """
+        detector.simulate(track, **kwargs)
+
+        Perform drift and readout simulations for the input Track object.
+
+        Parameters
+        ----------
+        track : Track obect
+            Event data provided by an input parser or a generator.
+        
+        """
         self.drift(track, **kwargs)
         self.readout(track, **kwargs)
         
     def drift(self, sampled_track, **kwargs):
-        # drift the charge samples from their input position
-        # to the anode position as defined by detector_params
-        # save the drifted positions to te track
+        """
+        detector.drift(sampled_track, **kwargs)
 
+        Drift the charge samples from their input position
+        to the anode position as defined by detector_params.
+        Save the drifted positions to the track object.
+
+        Parameters
+        ----------
+        track : Track obect
+            Event data provided by an input parser or a generator.
+        
+        """
         # TODO: a more complete way to describe the anode geometry
         # i.e., specify a plane and assume drift direction is shortest
         # path to that plane
@@ -550,9 +917,20 @@ class DetectorModel:
         return 
 
     def readout(self, drifted_track, **kwargs):
-        # apply the readout simulation to the drifted track
-        # this is defined by the GAMPixModel object
+        """
+        detector.drift(drifted_track, **kwargs)
 
+        Apply the readout simulation to the drifted track.  This is defined
+        by the readout_model attribute.
+        
+        Parameters
+        ----------
+        drifted_track : Track obect
+            Event data provided by an input parser or a generator.  This object
+            should have already had drift simulation applied so that drifted_track
+            attribute is defined and non-empty.
+        
+        """
         self.readout_model.electronics_simulation(drifted_track, **kwargs)
 
         return
