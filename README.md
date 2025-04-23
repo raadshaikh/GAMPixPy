@@ -18,7 +18,7 @@ pip install gampixpy
 
 ### on S3DF
 
-If you are a SLAC collaborator, you may have access to [S3DF](s3df.slac.stanford.edu).  In this case, getting up and running with GAMPixPy is extremely simple:
+If you are a SLAC collaborator, you may have access to [S3DF](s3df.slac.stanford.edu).  In this case, getting up and running with GAMPixPy on a GPU is extremely simple:
 
 #### Terminal Interface
 
@@ -48,7 +48,7 @@ pip install gampixpy
 
 ### Minimal Simulation Example
 
-An implementation of the simulation workflow is shown in `gampixpy/gampix_sim.py`
+An implementation of the simulation workflow is shown in `gampixpy/examples/gampix_sim.py`
 
 Minimally, one needs to instantiate a `DetectorModel` object (with configurations speciying the details of the TPC conditions).  Next, one makes an input parser from one of the pre-defined classes.  At this time, there are four planned parsers, but contributions are welcome!
 
