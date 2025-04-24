@@ -356,7 +356,7 @@ class EdepSimParser (SegmentParser):
         else:
             self.sampling_order = torch.tensor(unique_event_ids[torch.randperm(self.n_images)])
             
-    def get_edepsim_event(self, sample_index, pdg_selection=None, **kwargs):
+    def _get_edepsim_event(self, sample_index, pdg_selection=None, **kwargs):
         segment_mask = self.file_handle['segments']['eventID'] == sample_index
         if pdg_selection:
             event_mask *= self.file_handle['segments']['pdgId'] == pdg_selection
@@ -435,7 +435,7 @@ class EdepSimParser (SegmentParser):
         return self._get_edepsim_event(index, **kwargs)
 
     def get_meta(self, index, **kwargs):
-                """
+        """
         parser.get_meta(index, **kwargs)
 
         Get the metadata from the loaded file
