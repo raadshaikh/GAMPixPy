@@ -210,9 +210,9 @@ class ReadoutModel:
         pitch = self.readout_config['coarse_tiles']['pitch']
 
         sample_mask = position[:,0] - tile_coord[0] > -(n_neighbor_tiles + 0.5)*pitch
-        sample_mask *= position[:,0] - tile_coord[0] < (n_neighbor_tiles + 0.5)*pitch
+        sample_mask *= position[:,0] - tile_coord[0] <= (n_neighbor_tiles + 0.5)*pitch
         sample_mask *= position[:,1] - tile_coord[1] > -(n_neighbor_tiles + 0.5)*pitch
-        sample_mask *= position[:,1] - tile_coord[1] < (n_neighbor_tiles + 0.5)*pitch
+        sample_mask *= position[:,1] - tile_coord[1] <= (n_neighbor_tiles + 0.5)*pitch
 
         return sample_mask 
 
@@ -238,7 +238,7 @@ class ReadoutModel:
                                  self.readout_config['anode']['y_lower_bound'],
                                  ])
         spacing = self.readout_config['coarse_tiles']['pitch']
-        tile_ind = torch.div(track.drifted_track['position'][:,:2] - min_tile, spacing).int()
+        tile_ind = torch.floor(torch.div(track.drifted_track['position'][:,:2] - min_tile, spacing)).int()
 
         inside_anode_mask = (torch.min(tile_ind, axis = -1)[0] >= 0) 
         inside_anode_mask *= tile_ind[:, 0] < self.readout_config['n_tiles_x'] 
@@ -252,7 +252,7 @@ class ReadoutModel:
 
         coarse_grid_timeseries = {}
         unique_tile_indices = torch.unique(tile_ind, dim = 0)
-
+        
         for this_tile_ind in unique_tile_indices:
             tile_center = torch.tensor([self.readout_config['tile_volume_edges'][i][this_tile_ind[i]] + 0.5*self.readout_config['coarse_tiles']['pitch']
                                         for i in range(2)])
@@ -388,9 +388,9 @@ class ReadoutModel:
         pitch = self.readout_config['pixels']['pitch']
 
         sample_mask = position[:,0] - pixel_coord[0] > -(n_neighbor_pixels + 0.5)*pitch
-        sample_mask *= position[:,0] - pixel_coord[0] < (n_neighbor_pixels + 0.5)*pitch
+        sample_mask *= position[:,0] - pixel_coord[0] <= (n_neighbor_pixels + 0.5)*pitch
         sample_mask *= position[:,1] - pixel_coord[1] > -(n_neighbor_pixels + 0.5)*pitch
-        sample_mask *= position[:,1] - pixel_coord[1] < (n_neighbor_pixels + 0.5)*pitch
+        sample_mask *= position[:,1] - pixel_coord[1] <= (n_neighbor_pixels + 0.5)*pitch
 
         return sample_mask 
     
@@ -455,7 +455,7 @@ class ReadoutModel:
 
             # generate a unique id for each pixel within this coarse hit
             # so that hits from 
-            pixel_ind = torch.div(in_cell_positions[:,[0, 1]] - min_pixel, pixel_pitch).int()
+            pixel_ind = torch.floor(torch.div(in_cell_positions[:,[0, 1]] - min_pixel, pixel_pitch)).int()
             unique_pixel_indices = torch.unique(pixel_ind, dim = 0)
             
             for this_pixel_ind in unique_pixel_indices:
