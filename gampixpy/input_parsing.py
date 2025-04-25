@@ -260,7 +260,7 @@ class RooTrackerParser (SegmentParser):
 
         displacement = start_4vec[:,:3] - end_4vec[:,:3]
         dx = torch.sum(displacement**2, dim = 1)
-        dEdx = torch.where(dx > 0, dE/dx, 0)
+        dEdx = torch.where(dx > 0, dE/dx, 0.)
 
         dQ = self.do_recombination(dE, dx, dEdx, **kwargs)
         charge_4vec, charge_values = self.do_point_sampling(start_4vec,
@@ -379,7 +379,7 @@ class EdepSimParser (SegmentParser):
 
         displacement = start_4vec[:,:3] - end_4vec[:,:3]
         dx = torch.sum(displacement**2, dim = 1)
-        dEdx = torch.where(dx > 0, dE/dx, 0)
+        dEdx = torch.where(dx > 0, dE/dx, 0.)
 
         dQ = self.do_recombination(dE, dx, dEdx, **kwargs)
         charge_4vec, charge_values = self.do_point_sampling(start_4vec,
@@ -638,7 +638,7 @@ class MarleyCSVParser (SegmentParser):
 
         displacement = start_4vec[:,:3] - end_4vec[:,:3]
         dx = torch.sum(displacement**2, dim = 1)
-        dEdx = torch.where(dx > 0, dE/dx, 0)
+        dEdx = torch.where(dx > 0, dE/dx, 0.)
 
         dQ = self.do_recombination(dE, dx, dEdx)
         charge_4vec, charge_values = self.do_point_sampling(start_4vec,
