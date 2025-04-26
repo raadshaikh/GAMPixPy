@@ -57,7 +57,7 @@ class ReadoutModel:
         
         """
         try:
-            self.clock_start_time = torch.min(track.drifted_track['times'])
+            self.clock_start_time = torch.min(track.drifted_track['time'])
         except RuntimeError:
             print ("Encountered empty event!")
             message = """This is most often because the event lies totally outside of the specified detector volume"""
@@ -128,7 +128,7 @@ class ReadoutModel:
 
         position = track.drifted_track['position'][sample_mask]
         charge = track.drifted_track['charge'][sample_mask]
-        time = track.drifted_track['times'][sample_mask]
+        time = track.drifted_track['time'][sample_mask]
         pitch = self.readout_config['coarse_tiles']['pitch']
         
         lands_on_tile_of_interest = position[:,0] - tile_coord[0] > -0.5*pitch
@@ -247,7 +247,7 @@ class ReadoutModel:
         tile_ind = tile_ind[inside_anode_mask]
 
         z_series = track.drifted_track['position'][inside_anode_mask,2]
-        t_series = track.drifted_track['times'][inside_anode_mask]
+        t_series = track.drifted_track['time'][inside_anode_mask]
         charge_series = track.drifted_track['charge'][inside_anode_mask]
 
         coarse_grid_timeseries = {}
@@ -306,7 +306,7 @@ class ReadoutModel:
         
         position = track.drifted_track['position'][sample_mask]
         charge = track.drifted_track['charge'][sample_mask]
-        time = track.drifted_track['times'][sample_mask]
+        time = track.drifted_track['time'][sample_mask]
         pitch = self.readout_config['pixels']['pitch']
 
         lands_on_pixel_of_interest = position[:,0] - pixel_coord[0] > -0.5*pitch
@@ -435,8 +435,8 @@ class ReadoutModel:
             in_cell_mask *= track.drifted_track['position'][:,0] < x_bounds[1]
             in_cell_mask *= track.drifted_track['position'][:,1] >= y_bounds[0]
             in_cell_mask *= track.drifted_track['position'][:,1] < y_bounds[1]
-            in_cell_mask *= track.drifted_track['times'] >= t_bounds[0]
-            in_cell_mask *= track.drifted_track['times'] < t_bounds[1]
+            in_cell_mask *= track.drifted_track['time'] >= t_bounds[0]
+            in_cell_mask *= track.drifted_track['time'] < t_bounds[1]
 
             in_cell_positions = track.drifted_track['position'][in_cell_mask]
             in_cell_charges = track.drifted_track['charge'][in_cell_mask]
@@ -450,7 +450,7 @@ class ReadoutModel:
                                   torch.linspace(y_bounds[0], y_bounds[1], n_pixels_y+1))
             
             z_series = in_cell_positions[:,2]
-            t_series = track.drifted_track['times'][in_cell_mask]
+            t_series = track.drifted_track['time'][in_cell_mask]
             charge_series = in_cell_charges
 
             # generate a unique id for each pixel within this coarse hit
@@ -869,7 +869,7 @@ class DetectorModel:
         # anode_z = self.detector_params['anode']['z']
         anode_z = self.readout_params['anode']['z_lower_bound']
 
-        input_position = sampled_track.raw_track['4vec'][:,:3]
+        input_position = sampled_track.raw_track['position']
         input_charges = sampled_track.raw_track['charge']
 
         # position is disturbed by diffusion
@@ -906,14 +906,14 @@ class DetectorModel:
         # add dispersion to the arrival of charge due to longitudinal diffusion
         time_dispersion = (drifted_positions[:, 2] - region_position[:, 2])/self.physics_params['charge_drift']['drift_speed'] 
         
-        arrival_times = drift_time + sampled_track.raw_track['4vec'][region_mask,3] + time_dispersion
+        arrival_time = drift_time + sampled_track.raw_track['time'][region_mask] + time_dispersion
             
         # might also include a sub-sampling step?
         # in case initial sampling is not fine enough
 
         sampled_track.drifted_track = {'position': drifted_positions,
                                        'charge': drifted_charges,
-                                       'times': arrival_times}
+                                       'time': arrival_time}
         return 
 
     def readout(self, drifted_track, **kwargs):

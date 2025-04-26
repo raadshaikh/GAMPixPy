@@ -273,8 +273,10 @@ class LineSource (Generator):
 
         Returns
         -------
-        sample_4vec : array-like[float, float, float, float]
-            (position, time) vector for each point within the line distribution.
+        sample_position : array-like[float, float, float]
+            Position vector for each point within the line distribution.
+        sample_time : array-like[float, float, float, float]
+            Time for each point within the line distribution.
         sample_charges : array-like[float]
             charge per point sample
         
@@ -288,10 +290,12 @@ class LineSource (Generator):
 
         sample_parametric_distance = torch.linspace(0, 1, self.n_samples)
         sample_4vec = start_4vec + segment_interval*sample_parametric_distance[:,None]
-        
+
+        sample_position = sample_4vec[:,:3]
+        sample_time = sample_4vec[:,3]
         sample_charges = charge_per_sample*torch.ones(self.n_samples)
 
-        return sample_4vec, sample_charges
+        return sample_position, sample_time, sample_charges
         
     def get_sample(self):
         """

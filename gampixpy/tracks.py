@@ -4,7 +4,7 @@ from gampixpy.readout_objects import coarse_tile_dtype, pixel_dtype
 
 class Track:
     """
-    Track (sample_4vec, sample_charges)
+    Track (sample_position, sample_time, sample_charge)
 
     General-purpose data class for storing representations of an
     ionization event in the detector.
@@ -13,11 +13,12 @@ class Track:
     ----------
 
     raw_track : dict
-        Dict containing sample position 4-vectors (key: '4vec') and
-        sample charge values (key 'charge').  Both are array-like.
+        Dict containing sample position vectors (key: 'position'),
+        sample ionization time (key 'time'), and sample charge 
+        values (key 'charge').  All are array-like.
     drifted_track : dict
         Dict containing sample position 3-vectors ('position'), sample
-        arrival times ('times') and charge after attenuation ('charge').
+        arrival times ('time') and charge after attenuation ('charge').
     pixel_samples : list[CoarseGridSample]
         List of coarse tile hits found by detector simulation.
     coarse_tiles_samples : list[PixelSample]
@@ -29,9 +30,10 @@ class Track:
     CoarseTileSample : Data class for tile hits.
     
     """
-    def __init__(self, sample_4vec, sample_charges):
-        self.raw_track = {'4vec': sample_4vec,
-                          'charge': sample_charges}
+    def __init__(self, sample_position, sample_time, sample_charge):
+        self.raw_track = {'position': sample_position,
+                          'time': sample_time,
+                          'charge': sample_charge}
 
         self.drifted_track = {}
 

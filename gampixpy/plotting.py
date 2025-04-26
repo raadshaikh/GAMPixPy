@@ -302,12 +302,12 @@ class EventDisplay:
             reduction_factor = math.ceil(n_points/self.MAX_POINTS_PLOTTED)
             xs = self.track_object.drifted_track['position'][::reduction_factor,0]
             ys = self.track_object.drifted_track['position'][::reduction_factor,1]
-            zs = self.track_object.drifted_track['times'][::reduction_factor]
+            zs = self.track_object.drifted_track['time'][::reduction_factor]
             colors = np.log(self.track_object.drifted_track['charge'][::reduction_factor])
         else:
             xs = self.track_object.drifted_track['position'][:,0]
             ys = self.track_object.drifted_track['position'][:,1]
-            zs = self.track_object.drifted_track['times'][:]
+            zs = self.track_object.drifted_track['time'][:]
             colors = np.log(self.track_object.drifted_track['charge'][:])
                         
 
