@@ -715,28 +715,41 @@ class MarleyCSVParser (SegmentParser):
         return self._get_CSV_meta(index)
 
 class PenelopeParser (InputParser):
-    # BROKEN
-    # revisit this later
-    
     # def __init__(self, *args, **kwargs):
     #     super().__init__(*args, **kwargs)
     
-    def _open_file_handle(self):
-        # import h5py
-        # self.file_handle = h5py.File(self.input_filename)
-        return 
+    def _open_file_handle(self, **kwargs):
+        self.file_handle = np.load(self.input_filename, **kwargs)
 
     def _generate_sample_order(self, sequential_sampling):
-        # self.n_images = len(np.unique(self.file_handle['trajectories']['eventID']))
-        return 
+        # These inputs have only one event per file
+        # Sampling is trivial
+        self.sampling_order = [0]
         
     def _get_penelope_sample(self):
-        # do the magic that lets you read from a penelope file
-        return None
+        charge_position = torch.tensor(self.file_handle['r'])
+        charge_values = torch.tensor(self.file_handle['num_e'])
+        charge_time = torch.zeros_like(charge_values)
+        
+        return Track(charge_position, charge_time, charge_values)
 
     def _get_penelope_meta(self):
-        # do the magic that lets you read from a penelope file
-        return None
+        # is the only available metadata for these energy in the filename?
+        primary_energy = self.input_filename.split('/')[-1].split('_')[0][6:]
+        try:
+            primary_energy = float(primary_energy)*MeV
+        except ValueError:
+            primary_energy = -1
+
+        meta_array = np.array([(-1, # sample index (undefined)
+                                primary_energy, # primary kinetic energy
+                                -1, # charge (undefined)
+                                0, 0, 0, # vertex position (undefined)
+                                -1, -1, # primary attitude (undefined)
+                                -1, # primary length (undefined)
+                                )],
+                              dtype = meta_dtype)
+        return meta_array
 
     def get_sample(self, index):
         """
@@ -780,4 +793,5 @@ class PenelopeParser (InputParser):
 parser_dict = {'root': RooTrackerParser,
                'edepsim': EdepSimParser,
                'marley': MarleyParser,
+               'penelope': PenelopeParser,
                }
