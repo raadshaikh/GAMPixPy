@@ -371,16 +371,18 @@ class EdepSimParser (SegmentParser):
         trajectory_mask = self.file_handle['trajectories']['eventID'] == sample_index
         event_trajectories = self.file_handle['trajectories'][trajectory_mask]
 
-        start_4vec = torch.tensor((event_segments['x_start']*cm,
-                                   event_segments['y_start']*cm,
-                                   event_segments['z_start']*cm,
-                                   event_segments['t_start']*ns,
-                                   )).T
-        end_4vec = torch.tensor((event_segments['x_end']*cm,
-                                 event_segments['y_end']*cm,
-                                 event_segments['z_end']*cm,
-                                 event_segments['t_end']*ns,
-                                 )).T
+        start_4vec = np.array([event_segments['x_start']*cm,
+                               event_segments['y_start']*cm,
+                               event_segments['z_start']*cm,
+                               event_segments['t_start']*ns,
+                               ]).T
+        start_4vec = torch.tensor(start_4vec)
+        end_4vec = np.array([event_segments['x_end']*cm,
+                             event_segments['y_end']*cm,
+                             event_segments['z_end']*cm,
+                             event_segments['t_end']*ns,
+                             ]).T
+        end_4vec = torch.tensor(end_4vec)
         dE = torch.tensor(event_segments['dE']*MeV)
 
         displacement = start_4vec[:,:3] - end_4vec[:,:3]
