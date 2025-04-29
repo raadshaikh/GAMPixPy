@@ -1,6 +1,9 @@
 <img alt="GAMPixPy" align="center" src="docs/gampixpy_logo.png" height="240" />
 
-GAMPixPy: A Detector Simulation for GAMPix-based LArTPC designs, including GammaTPC and DUNE
+# GAMPixPy: A Detector Simulation for GAMPix-based LArTPC designs, including GammaTPC and DUNE
+
+[![PyPI Package latest release](https://img.shields.io/pypi/v/gampixpy.svg)](https://pypi.python.org/pypi/gampixpy)
+[![GitHub Actions Status: CI](https://github.com/DanielMDouglas/GAMPixPy/actions/workflows/python-publish.yml/badge.svg)](https://github.com/DanielMDouglas/GAMPixPy/actions/workflows/python-publish.yml)
 
 ## Getting Started
 
