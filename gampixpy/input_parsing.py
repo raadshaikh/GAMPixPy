@@ -727,7 +727,7 @@ class PenelopeParser (InputParser):
         self.sampling_order = [0]
         
     def _get_penelope_sample(self):
-        charge_position = torch.tensor(self.file_handle['r'])
+        charge_position = torch.tensor(self.file_handle['r']).T
         charge_values = torch.tensor(self.file_handle['num_e'])
         charge_time = torch.zeros_like(charge_values)
         
