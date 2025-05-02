@@ -27,10 +27,10 @@ coarse_tiles:
     value: 0.01
     unit: cm
   power_per_tile:
-    value: 1e-3
+    value: 1.e-3
     unit: J/s
   noise:
-    value: 0
+    value: 0.
     unit: e
   signal_fraction: 1
   threshold_sigma: 0
@@ -49,7 +49,7 @@ pixels:
     value: 1.e-3
     unit: J/s
   noise:
-    value: 1000
+    value: 1000.
     unit: e
   threshold_sigma: 5.0
   clock_interval:

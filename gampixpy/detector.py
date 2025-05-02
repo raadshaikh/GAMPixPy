@@ -162,21 +162,27 @@ class ReadoutModel:
             Array of integrated charge induced on pixel within each clock cycle.
         
         """
-        last_charge_arrival_time = torch.max(sparse_current_series[0,:,:])
-        # when there is only one charge sample in a coarse cell's field
-        # and it is also the earliest charge sample, n_clock_ticks is 0
-        # so, add an extra clock tick to be safe
-        n_clock_ticks = torch.ceil((last_charge_arrival_time - self.clock_start_time)/self.readout_config['coarse_tiles']['clock_interval']).int() + 1 
+        try: # there is a bug where sparse_current_series is sometimes empty            
+            last_charge_arrival_time = torch.max(sparse_current_series[0,:,:])
+            # when there is only one charge sample in a coarse cell's field
+            # and it is also the earliest charge sample, n_clock_ticks is 0
+            # so, add an extra clock tick to be safe
+            n_clock_ticks = torch.ceil((last_charge_arrival_time - self.clock_start_time)/self.readout_config['coarse_tiles']['clock_interval']).int() + 1 
+            
+            arrival_time_bin_edges = torch.linspace(self.clock_start_time,
+                                                    self.clock_start_time + n_clock_ticks*self.readout_config['coarse_tiles']['clock_interval'],
+                                                    n_clock_ticks + 1,
+                                                    )
 
-        arrival_time_bin_edges = torch.linspace(self.clock_start_time,
-                                                self.clock_start_time + n_clock_ticks*self.readout_config['coarse_tiles']['clock_interval'],
-                                                n_clock_ticks + 1,
-                                                )
-
-        # find the induced charge which falls into each clock bin
-        induced_charge = torchist.histogram(sparse_current_series[0,:,:],
-                                            weights = sparse_current_series[1,:,:],
-                                            edges = arrival_time_bin_edges)
+            # find the induced charge which falls into each clock bin
+            induced_charge = torchist.histogram(sparse_current_series[0,:,:],
+                                                weights = sparse_current_series[1,:,:],
+                                                edges = arrival_time_bin_edges)
+        except RuntimeError:
+            arrival_time_bin_edges = torch.tensor([self.clock_start_time,
+                                                   self.clock_start_time + self.readout_config['coarse_tiles']['clock_interval'],
+                                                   ])
+            induced_charge = torch.zeros_like(arrival_time_bin_edges)
 
         return arrival_time_bin_edges[:-1], induced_charge
         
