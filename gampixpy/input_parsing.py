@@ -727,7 +727,7 @@ class PenelopeParser (InputParser):
         self.sampling_order = [0]
         
     def _get_penelope_sample(self):
-        charge_position = torch.tensor(self.file_handle['r'])
+        charge_position = torch.tensor(self.file_handle['r']).T
         charge_values = torch.tensor(self.file_handle['num_e'])
         charge_time = torch.zeros_like(charge_values)
         
@@ -768,7 +768,7 @@ class PenelopeParser (InputParser):
             Return the loaded image as a point-sampled track object.
         
         """
-        return self._get_penelope_sample(index)
+        return self._get_penelope_sample()
     
     def get_meta(self, index):
         """
@@ -788,7 +788,7 @@ class PenelopeParser (InputParser):
             of this array is defined in meta_dtype, above.
         
         """
-        return self._get_penelope_meta(index)
+        return self._get_penelope_meta()
 
 parser_dict = {'root': RooTrackerParser,
                'edepsim': EdepSimParser,
