@@ -237,6 +237,60 @@ class RooTrackerParser (SegmentParser):
         else:
             self.sampling_order = torch.randperm(self.n_images)
 
+    def _get_G4_segments(self, sample_index, **kwargs):
+        self.inputTree.GetEntry(sample_index, **kwargs)
+
+        traj_id = torch.empty((0))
+        traj_pdg = torch.empty((0))
+        for trajectory in self.event.Trajectories:
+            this_traj_id = torch.tensor([trajectory.GetTrackId()])
+            this_traj_pdg = torch.tensor([trajectory.GetPDGCode()])
+
+            traj_id = torch.cat((this_traj_id,
+                                 traj_id))
+            traj_pdg = torch.cat((this_traj_pdg,
+                                 traj_pdg))
+        
+        start_pos = torch.empty((0,4))
+        end_pos = torch.empty((0,4))
+        start_time = torch.empty((0))
+        end_time = torch.empty((0))
+        dE = torch.empty((0))
+        pdgid = torch.empty((0))
+
+        for container_name, hit_segments in self.event.SegmentDetectors:
+            for segment in hit_segments:
+
+                this_start_pos = torch.tensor([segment.GetStart().X()*mm,
+                                                segment.GetStart().Y()*mm,
+                                                segment.GetStart().Z()*mm])
+                this_end_pos = torch.tensor([segment.GetStop().X()*mm,
+                                              segment.GetStop().Y()*mm,
+                                              segment.GetStop().Z()*mm])
+
+                this_start_time = torch.tensor([segment.GetStart().T()*ns])
+                this_end_time = torch.tensor([segment.GetStop().T()*ns])
+
+                this_dE = torch.tensor([segment.GetEnergyDeposit()*MeV])
+
+                parent_id = list(segment.Contrib)[0]
+                this_pdgid = traj_pdg[traj_id == parent_id]
+                
+                start_pos = torch.cat((this_start_pos[None,:],
+                                       start_pos))
+                end_pos = torch.cat((this_end_pos[None,:],
+                                      end_pos))
+                start_time = torch.cat((this_start_time,
+                                        start_time))
+                end_time = torch.cat((this_end_time,
+                                      end_time))
+                dE = torch.cat((this_dE,
+                                dE))
+                pdgid = torch.cat((this_pdgid,
+                                   pdgid))
+
+        return start_pos, end_pos, start_time, end_time, dE, pdgid
+            
     def _get_G4_sample(self, sample_index, **kwargs):
         self.inputTree.GetEntry(sample_index, **kwargs)
 
@@ -306,11 +360,45 @@ class RooTrackerParser (SegmentParser):
                               dtype = meta_dtype)
         return meta_array
 
+    def get_segments(self, index, **kwargs):
+        """
+        parser.get_segments(index, **kwargs)
+
+        Get the N Geant4 segments associated with this event index from the
+        input file.  These are normally passed directly to the point sampling
+        method when `get_sample` is called.
+
+        Parameters
+        ----------
+        index : int
+            Index (in the file's internal scheme) of the sample to retrieve.
+
+        Returns
+        -------
+        start_pos : array-like
+            (N, 3) array containing the start points for each segment in the event.
+        end_pos : array-like
+            (N, 3) array containing the final points for each segment in the event.
+        start_time : array-like
+            (N,) array containing the time of the initial point in each segment in
+            the event.
+        end_time : array-like
+            (N,) array containing the time of the final point in each segment in the
+            event.
+        dE : array-like
+            (N,) array containing the energy deposited via ionizations for each
+            segment in the event.
+        pdgid : array-like
+            (N,) array containing the PDG code for each segment in the event.
+                
+        """
+        return self._get_G4_segments(index, **kwargs)
+
     def get_sample(self, index, **kwargs):
         """
         parser.get_sample(index, **kwargs)
 
-        Get the sample image from the loaded file
+        Get the sample image from the loaded file.
 
         Parameters
         ----------
@@ -361,6 +449,32 @@ class EdepSimParser (SegmentParser):
             self.sampling_order = torch.tensor(unique_event_ids)
         else:
             self.sampling_order = torch.tensor(unique_event_ids[torch.randperm(self.n_images)])
+
+    def _get_edepsim_segments(self, sample_index, pdg_selection=None, **kwargs):
+        segment_mask = self.file_handle['segments']['eventID'] == sample_index
+        if pdg_selection:
+            event_mask *= self.file_handle['segments']['pdgId'] == pdg_selection
+        event_segments = self.file_handle['segments'][segment_mask]
+      
+        trajectory_mask = self.file_handle['trajectories']['eventID'] == sample_index
+        event_trajectories = self.file_handle['trajectories'][trajectory_mask]
+
+        start_pos = np.array([event_segments['x_start']*cm,
+                              event_segments['y_start']*cm,
+                              event_segments['z_start']*cm]).T
+        start_pos = torch.tensor(start_pos)
+        end_pos = np.array([event_segments['x_end']*cm,
+                            event_segments['y_end']*cm,
+                            event_segments['z_end']*cm]).T
+        end_pos = torch.tensor(end_pos)
+        
+        start_time = torch.tensor(event_segments['t_start']*ns)
+        end_time = torch.tensor(event_segments['t_end']*ns)
+        
+        dE = torch.tensor(event_segments['dE']*MeV)
+        pdgid = torch.tensor(event_segments['pdgId'])
+
+        return start_pos, end_pos, start_time, end_time, dE, pdgid
             
     def _get_edepsim_event(self, sample_index, pdg_selection=None, **kwargs):
         segment_mask = self.file_handle['segments']['eventID'] == sample_index
@@ -422,12 +536,46 @@ class EdepSimParser (SegmentParser):
                                 )],
                               dtype = meta_dtype)
         return meta_array
+
+    def get_segments(self, index, **kwargs):
+        """
+        parser.get_segments(index, **kwargs)
+
+        Get the N Geant4 segments associated with this event index from the
+        input file.  These are normally passed directly to the point sampling
+        method when `get_sample` is called.
+
+        Parameters
+        ----------
+        index : int
+            Index (in the file's internal scheme) of the sample to retrieve.
+
+        Returns
+        -------
+        start_pos : array-like
+            (N, 3) array containing the start points for each segment in the event.
+        end_pos : array-like
+            (N, 3) array containing the final points for each segment in the event.
+        start_time : array-like
+            (N,) array containing the time of the initial point in each segment in
+            the event.
+        end_time : array-like
+            (N,) array containing the time of the final point in each segment in the
+            event.
+        dE : array-like
+            (N,) array containing the energy deposited via ionizations for each
+            segment in the event.
+        pdgid : array-like
+            (N,) array containing the PDG code for each segment in the event.
+                
+        """
+        return self._get_edepsim_segments(index, **kwargs)
         
     def get_sample(self, index, **kwargs):
         """
         parser.get_sample(index, **kwargs)
 
-        Get the sample image from the loaded file
+        Get the sample image from the loaded file.
 
         Parameters
         ----------
@@ -547,7 +695,7 @@ class MarleyParser (SegmentParser):
         """
         parser.get_sample(index, **kwargs)
 
-        Get the sample image from the loaded file
+        Get the sample image from the loaded file.
 
         Parameters
         ----------
@@ -679,7 +827,7 @@ class MarleyCSVParser (SegmentParser):
         """
         parser.get_sample(index, **kwargs)
 
-        Get the sample image from the loaded file
+        Get the sample image from the loaded file.
 
         Parameters
         ----------
@@ -755,7 +903,7 @@ class PenelopeParser (InputParser):
         """
         parser.get_sample(index, **kwargs)
 
-        Get the sample image from the loaded file
+        Get the sample image from the loaded file.
 
         Parameters
         ----------
