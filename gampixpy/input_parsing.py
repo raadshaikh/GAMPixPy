@@ -319,7 +319,7 @@ class RooTrackerParser (SegmentParser):
                                 dE))
 
         displacement = start_4vec[:,:3] - end_4vec[:,:3]
-        dx = torch.sum(displacement**2, dim = 1)
+        dx = torch.sqrt(torch.sum(displacement**2, dim = 1))
         dEdx = torch.where(dx > 0, dE/dx, 0.)
 
         dQ = self.do_recombination(dE, dx, dEdx, **kwargs)
@@ -500,7 +500,7 @@ class EdepSimParser (SegmentParser):
         dE = torch.tensor(event_segments['dE']*MeV)
 
         displacement = start_4vec[:,:3] - end_4vec[:,:3]
-        dx = torch.sum(displacement**2, dim = 1)
+        dx = torch.sqrt(torch.sum(displacement**2, dim = 1))
         dEdx = torch.where(dx > 0, dE/dx, 0.)
 
         dQ = self.do_recombination(dE, dx, dEdx, **kwargs)
@@ -793,7 +793,7 @@ class MarleyCSVParser (SegmentParser):
         dE = torch.tensor(event_rows['dE']*MeV)
 
         displacement = start_4vec[:,:3] - end_4vec[:,:3]
-        dx = torch.sum(displacement**2, dim = 1)
+        dx = torch.sqrt(torch.sum(displacement**2, dim = 1))
         dEdx = torch.where(dx > 0, dE/dx, 0.)
 
         dQ = self.do_recombination(dE, dx, dEdx)
