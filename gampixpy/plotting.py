@@ -53,7 +53,7 @@ class EventDisplay:
         self.pixel_hit_kwargs = dict(facecolors=SLACplots.stanford.illuminating,
                                      linewidths=1,
                                      edgecolors=SLACplots.stanford.illuminating,
-                                     alpha = 0.5)
+                                     alpha = 0.01)
         
     def _init_fig(self):
         self.fig = plt.figure()
@@ -204,7 +204,7 @@ class EventDisplay:
         
         self.ax.add_collection3d(Poly3DCollection(faces, **kwargs))            
 
-    def plot_raw_track(self, **kwargs):
+    def plot_raw_track(self, masking='none', **kwargs):
         """
         evd.plot_raw_track(**kwargs)
 
@@ -219,24 +219,35 @@ class EventDisplay:
         Additional kwargs are passed through to self.ax.scatter
 
         """
+        
+        if masking=='none':
+            position = self.track_object.raw_track['position']
+            charge = self.track_object.raw_track['charge']
+        elif masking=='region':
+            position = self.track_object.raw_track['position'][self.track_object.region_mask]
+            charge = self.track_object.raw_track['charge'][self.track_object.region_mask]
 
         n_points = self.track_object.raw_track['position'].shape[0]
         if n_points > self.MAX_POINTS_PLOTTED:
             reduction_factor = math.ceil(n_points/self.MAX_POINTS_PLOTTED)
-            xs = self.track_object.raw_track['position'][::reduction_factor,0]
-            ys = self.track_object.raw_track['position'][::reduction_factor,1]
-            zs = self.track_object.raw_track['position'][::reduction_factor,2]
-            colors = np.log(self.track_object.raw_track['charge'][::reduction_factor])
+            xs = (position)[::reduction_factor,0]
+            ys = (position)[::reduction_factor,1]
+            zs = (position)[::reduction_factor,2]
+            colors = np.log(charge[::reduction_factor])
         else:
-            xs = self.track_object.raw_track['position'][:,0],
-            ys = self.track_object.raw_track['position'][:,1],
-            zs = self.track_object.raw_track['position'][:,2],
-            colors = np.log(self.track_object.raw_track['charge'][:])
-            
+            xs = position[:,0],
+            ys = position[:,1],
+            zs = position[:,2],
+            colors = np.log(charge[:])
+        
         self.ax.scatter(xs, ys, zs,
                         c = colors,
                         **kwargs,
                         )
+        # self.ax.scatter(xs, ys, zs,
+                        # color='#1f77b405',
+                        # **kwargs,
+                        # )
 
         self.ax.set_xlabel(r'x (transverse) [cm]')
         self.ax.set_ylabel(r'y (transverse) [cm]')
@@ -275,6 +286,10 @@ class EventDisplay:
                         c = colors,
                         **kwargs,
                         )
+        # self.ax.scatter(xs, ys, zs,
+                        # color='#ff7f0e10',
+                        # **kwargs,
+                        # )
 
         self.ax.set_xlabel(r'x (transverse) [cm]')
         self.ax.set_ylabel(r'y (transverse) [cm]')

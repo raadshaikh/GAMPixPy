@@ -39,6 +39,8 @@ class Track:
 
         self.pixel_samples = []
         self.coarse_tiles_samples = []
+        
+        self.region_mask = []
 
     def to_array(self):
         """

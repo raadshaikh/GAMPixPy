@@ -230,7 +230,7 @@ class ReadoutModel:
 
         Parameters
         ----------
-        track : Track obect
+        track : Track object
             Input event representation containing a populated drited_track.
 
         Returns
@@ -510,7 +510,7 @@ class GAMPixModel (ReadoutModel):
     LArPixModel : Sub-class implementing a LArPix-like hit-finding scheme.    
     
     """
-    def tile_hit_finding(self, track, tile_timeseries, nonoise = False, **kwargs):
+    def tile_hit_finding(self, track, tile_timeseries, nonoise = True, **kwargs):
         """
         readout.tile_hit_finding(track,
                                  tile_timeseries,
@@ -583,7 +583,7 @@ class GAMPixModel (ReadoutModel):
         track.coarse_tiles_samples = hits
         return hits 
 
-    def pixel_hit_finding(self, track, pixel_timeseries, nonoise = False, **kwargs):
+    def pixel_hit_finding(self, track, pixel_timeseries, nonoise = True, **kwargs):
         """
         readout.pixel_hit_finding(track,
                                   tile_timeseries,
@@ -865,7 +865,7 @@ class DetectorModel:
 
         Parameters
         ----------
-        track : Track obect
+        track : Track object
             Event data provided by an input parser or a generator.
         
         """
@@ -885,12 +885,14 @@ class DetectorModel:
         region_mask = drift_distance > 0
         region_position = input_position[region_mask]
         region_charges = input_charges[region_mask]
+        
+        sampled_track.region_mask = region_mask
 
         drift_distance = drift_distance[region_mask]
 
         # TODO: implement better drift model (maybe a functional response model)
         drift_time = drift_distance/self.physics_params['charge_drift']['drift_speed'] # s
-        # D accordint to https://lar.bnl.gov/properties/trans.html#diffusion-l
+        # D according to https://lar.bnl.gov/properties/trans.html#diffusion-l
         # sigma = sqrt(2*D*t)
 
         # use the nominal drift time to calculate diffusion

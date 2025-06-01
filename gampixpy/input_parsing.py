@@ -117,10 +117,10 @@ class SegmentParser (InputParser):
         elif mode.lower() == 'birks':
             recombination_model = BirksRecombinationModel(self.physics_config)
         else:
-            raise ValueError("Invalid recombination mode: must be 'physics.BOX' or 'physics.BRIKS'")
+            raise ValueError("Invalid recombination mode: must be 'physics.BOX' or 'physics.BIRKS'")
 
         recomb = recombination_model(dE, dx, dEdx)
-
+        # print(recomb)
         if torch.any(torch.isnan(recomb)):
             raise RuntimeError("Invalid recombination value")
 
@@ -440,6 +440,7 @@ class EdepSimParser (SegmentParser):
     def _open_file_handle(self, **kwargs):
         import h5py
         self.file_handle = h5py.File(self.input_filename, **kwargs)
+        self.n_events = len(np.unique(np.array(self.file_handle['trajectories']['eventID'])))
 
     def _generate_sample_order(self, sequential_sampling, **kwargs):
         unique_event_ids = np.unique(self.file_handle['trajectories']['eventID']).astype(np.int32)
@@ -498,10 +499,15 @@ class EdepSimParser (SegmentParser):
                              ]).T
         end_4vec = torch.tensor(end_4vec)
         dE = torch.tensor(event_segments['dE']*MeV)
+        
+        # print(start_4vec.shape, start_4vec[0:20,:])
+        # print(end_4vec.shape, end_4vec[0:20,:])
+        # print(dE.shape, dE[0:20])
 
         displacement = start_4vec[:,:3] - end_4vec[:,:3]
         dx = torch.sqrt(torch.sum(displacement**2, dim = 1))
         dEdx = torch.where(dx > 0, dE/dx, 0.)
+        # print(dEdx.shape, dEdx[0:20])
 
         dQ = self.do_recombination(dE, dx, dEdx, **kwargs)
         charge_position, charge_time, charge_values = self.do_point_sampling(start_4vec,
