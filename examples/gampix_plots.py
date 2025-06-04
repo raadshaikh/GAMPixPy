@@ -108,8 +108,7 @@ load(input_file_DT) #now we have drifted_tracks, an array of the drifted_track d
 # plt.show()
 
 '''loss in detected charge vs drift length'''
-'''hit z in readout_objects actually refers to arrival time! (in us)'''
-
+''''hit z' in readout_objects actually refers to arrival time! (in us)'''
 excess = np.array([])
 for i in range(n_events):
     event_mask = fh[cf]['event id'] == i
@@ -136,10 +135,9 @@ for i in range(n_events):
         true_qs.append(true_q)
     true_qs = np.array(true_qs)
     excess = np.append(excess, (hit_qs-true_qs))
-    ###### plt.scatter(hit_zs, hit_qs/true_qs, marker='.', alpha=0.3, label='{} MeV'.format(int(fh['meta']['primary energy'][meta_event_mask])))
-    ###### plt.scatter(true_qs, hit_qs, marker='.', alpha=0.3, label='{} MeV'.format(int(fh['meta']['primary energy'][meta_event_mask])))
-    ###### plt.scatter(np.linspace(min(hit_zs), max(hit_zs), len(hit_zs)), hit_zs)
-###### plt.axline(xy1=(0,0), slope=1, label='y=x', color='black')
+    ###### plt.scatter(hit_zs, hit_qs/true_qs, marker='.', alpha=0.3, label='{} MeV'.format(int(fh['meta']['primary energy'][meta_event_mask]))) #plot detected charge/true charge vs drift length
+    ###### plt.scatter(true_qs, hit_qs, marker='.', alpha=0.3, label='{} MeV'.format(int(fh['meta']['primary energy'][meta_event_mask]))) #plot detected charge vs true charge
+###### plt.axline(xy1=(0,0), slope=1, label='y=x', color='black') #plot 45 deg line
 
 plt.hist(excess, bins=70, density=True)
 m, s = np.mean(excess), np.std(excess)
