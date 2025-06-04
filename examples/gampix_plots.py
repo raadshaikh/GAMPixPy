@@ -31,7 +31,7 @@ input_file_DT = '1-2GeVmuons_DT'
 
 ''' 'coarse or fine' - choosing which to analyse '''
 cf = 'coarse_hits'
-cf = 'pixel_hits'
+# cf = 'pixel_hits'
 pitch = pitches[cf]
 
 fh = h5py.File(input_file)
@@ -109,49 +109,58 @@ load(input_file_DT) #now we have drifted_tracks, an array of the drifted_track d
 
 '''loss in detected charge vs drift length'''
 '''hit z in readout_objects actually refers to arrival time! (in us)'''
-# for i in range(n_events):
-    # event_mask = fh[cf]['event id'] == i
-    # meta_event_mask = fh['meta']['event id'] == i
-    # hit_zs = v_drift*fh[cf][event_mask]['hit z'] #'hit z' field actually stores arrival time (us)
-    # hit_qs = fh[cf][event_mask]['hit charge']
-    # dz = v_drift*1 #drift speed * clock tick
-    # true_qs = []
-    # for hit in fh[cf][event_mask]:
-        # hit_z = v_drift*hit['hit z']
-        # hit_q = hit['hit charge']
-        # hit_x = hit['tile x' if cf=='coarse_hits' else 'pixel x']
-        # hit_y = hit['tile y' if cf=='coarse_hits' else 'pixel y']
-        # sample_pos = np.array(drifted_tracks[i]['position'])
-        # xy_bin_mask = sample_pos[:,0] >= hit_x-pitch/2
-        # xy_bin_mask *= sample_pos[:,0] <= hit_x+pitch/2
-        # xy_bin_mask *= sample_pos[:,1] >= hit_y-pitch/2
-        # xy_bin_mask *= sample_pos[:,1] <= hit_y+pitch/2
-        # z_bin_mask = sample_pos[:,2] >= hit_z
-        # z_bin_mask *= sample_pos[:,2] <= hit_z+dz
-        # overall_mask = z_bin_mask*xy_bin_mask
-        # sample_qs_in_bin = np.array(drifted_tracks[i]['charge'][overall_mask])
-        # true_q = np.sum(sample_qs_in_bin)
-        # true_qs.append(true_q)
-    # true_qs = np.array(true_qs)
-    # plt.scatter(hit_zs, hit_qs/true_qs, marker='.', alpha=0.3, label='{} MeV'.format(int(fh['meta']['primary energy'][meta_event_mask])))
-    ##### plt.scatter(true_qs, hit_qs, marker='.', alpha=0.3, label='{} MeV'.format(int(fh['meta']['primary energy'][meta_event_mask])))
-    ##### plt.scatter(np.linspace(min(hit_zs), max(hit_zs), len(hit_zs)), hit_zs)
-### plt.axline(xy1=(0,0), slope=1, label='y=x', color='black')
-# plt.legend()
-# plt.show()
 
-'''number of hits'''
+excess = np.array([])
 for i in range(n_events):
     event_mask = fh[cf]['event id'] == i
     meta_event_mask = fh['meta']['event id'] == i
-    # hits = len(drifted_tracks[i]['coarse_tiles_samples' if cf=='coarse_hits' else 'pixel_samples'])
-    hits =  len(fh[cf][event_mask]['hit charge'])
-    theta = fh['meta']['phi'][meta_event_mask]*360/(2*3.14159)
-    plt.scatter(theta, hits, label='{} MeV'.format(int(fh['meta']['primary energy'][meta_event_mask])))
+    hit_zs = v_drift*fh[cf][event_mask]['hit z'] #'hit z' field actually stores arrival time (us)
+    hit_qs = fh[cf][event_mask]['hit charge']
+    dz = v_drift*1 #drift speed * clock tick
+    true_qs = []
+    for hit in fh[cf][event_mask]:
+        hit_z = v_drift*hit['hit z']
+        hit_q = hit['hit charge']
+        hit_x = hit['tile x' if cf=='coarse_hits' else 'pixel x']
+        hit_y = hit['tile y' if cf=='coarse_hits' else 'pixel y']
+        sample_pos = np.array(drifted_tracks[i]['position'])
+        xy_bin_mask = sample_pos[:,0] >= hit_x-pitch/2
+        xy_bin_mask *= sample_pos[:,0] <= hit_x+pitch/2
+        xy_bin_mask *= sample_pos[:,1] >= hit_y-pitch/2
+        xy_bin_mask *= sample_pos[:,1] <= hit_y+pitch/2
+        z_bin_mask = sample_pos[:,2] >= hit_z
+        z_bin_mask *= sample_pos[:,2] <= hit_z+dz
+        overall_mask = z_bin_mask*xy_bin_mask
+        sample_qs_in_bin = np.array(drifted_tracks[i]['charge'][overall_mask])
+        true_q = np.sum(sample_qs_in_bin)
+        true_qs.append(true_q)
+    true_qs = np.array(true_qs)
+    excess = np.append(excess, (hit_qs-true_qs))
+    ###### plt.scatter(hit_zs, hit_qs/true_qs, marker='.', alpha=0.3, label='{} MeV'.format(int(fh['meta']['primary energy'][meta_event_mask])))
+    ###### plt.scatter(true_qs, hit_qs, marker='.', alpha=0.3, label='{} MeV'.format(int(fh['meta']['primary energy'][meta_event_mask])))
+    ###### plt.scatter(np.linspace(min(hit_zs), max(hit_zs), len(hit_zs)), hit_zs)
+###### plt.axline(xy1=(0,0), slope=1, label='y=x', color='black')
+
+plt.hist(excess, bins=70, density=True)
+m, s = np.mean(excess), np.std(excess)
+x = np.linspace(m-4*s,m+4*s)
+print(m,s)
+plt.plot(x, np.exp(-0.5*((x-m)/s)**2)/np.sqrt(2*3.14159*s**2), alpha=0.5)
 plt.legend()
-plt.xlabel('θ')
-plt.ylabel('# of hits')
 plt.show()
+
+'''number of hits'''
+# for i in range(n_events):
+    # event_mask = fh[cf]['event id'] == i
+    # meta_event_mask = fh['meta']['event id'] == i
+    ##### hits = len(drifted_tracks[i]['coarse_tiles_samples' if cf=='coarse_hits' else 'pixel_samples'])
+    # hits =  len(fh[cf][event_mask]['hit charge'])
+    # theta = fh['meta']['phi'][meta_event_mask]*360/(2*3.14159)
+    # plt.scatter(theta, hits, label='{} MeV'.format(int(fh['meta']['primary energy'][meta_event_mask])))
+# plt.legend()
+# plt.xlabel('θ')
+# plt.ylabel('# of hits')
+# plt.show()
 
 
 fh.close()

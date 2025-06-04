@@ -230,7 +230,7 @@ class ReadoutModel:
 
         Parameters
         ----------
-        track : Track object
+        track : Track obect
             Input event representation containing a populated drited_track.
 
         Returns
@@ -623,7 +623,9 @@ class GAMPixModel (ReadoutModel):
             discrim_charge = torch.sum(interval_charge)+torch.poisson(torch.tensor(self.readout_config['pixels']['noise']).float())
             threshold = self.readout_config['pixels']['noise']*self.readout_config['pixels']['threshold_sigma']
             if discrim_charge > threshold:
-                measured_charge = interval_charge + torch.poisson(self.readout_config['pixels']['noise']*torch.ones_like(interval_charge))
+                measured_charge = interval_charge
+                if not nonoise:
+                    measured_charge += torch.poisson(self.readout_config['pixels']['noise']*torch.ones_like(interval_charge))
                 
                 for this_timestamp, this_measured_charge in zip(time_ticks, measured_charge):
                     this_z = this_timestamp*1.6e5
@@ -865,7 +867,7 @@ class DetectorModel:
 
         Parameters
         ----------
-        track : Track object
+        track : Track obect
             Event data provided by an input parser or a generator.
         
         """
@@ -885,14 +887,12 @@ class DetectorModel:
         region_mask = drift_distance > 0
         region_position = input_position[region_mask]
         region_charges = input_charges[region_mask]
-        
-        sampled_track.region_mask = region_mask
 
         drift_distance = drift_distance[region_mask]
 
         # TODO: implement better drift model (maybe a functional response model)
         drift_time = drift_distance/self.physics_params['charge_drift']['drift_speed'] # s
-        # D according to https://lar.bnl.gov/properties/trans.html#diffusion-l
+        # D accordint to https://lar.bnl.gov/properties/trans.html#diffusion-l
         # sigma = sqrt(2*D*t)
 
         # use the nominal drift time to calculate diffusion

@@ -67,11 +67,12 @@ def main(args):
     # so this will create an EdepSimParser object and expect hdf5 input
     input_parser = input_parsing.parser_dict[args.input_format](args.input_file)
     
+    raw_tracks = []
     drifted_tracks = []
     if args.output_file:
             om = output.OutputManager(args.output_file)
-    # for i in range(input_parser.n_events):
-    for i in range(5,6): #dry run with just one event
+    for i in range(input_parser.n_events):
+    # for i in range(5,6): #dry run with just one event
         event_data = input_parser.get_sample(i)
         event_meta = input_parser.get_meta(i)
         
@@ -96,10 +97,11 @@ def main(args):
         # inspect the simulation products
         # print (event_data.raw_track) # track after recombination and point sampling
         # print (event_data.drifted_track) # track after drifting (diffusion, attenuation)
-        for h in event_data.coarse_tiles_samples:
-            print(h.coarse_measurement_time, h.coarse_measurement_depth)
+        # for h in event_data.coarse_tiles_samples:
+            # print(h.coarse_measurement_time, h.coarse_measurement_depth)
         
-        # drifted_tracks.append(event_data.drifted_track)
+        raw_tracks.append(event_data.raw_track)
+        drifted_tracks.append(event_data.drifted_track)
 
         # make the event display
         # evd = plotting.EventDisplay(event_data)
@@ -122,9 +124,12 @@ def main(args):
         if args.output_file:
             # om = output.OutputManager(args.output_file)
             om.add_entry(event_data, event_meta, event_id=i)
-    # save('1-2GeVmuons_DT', 'drifted_tracks')
-    # with open('1-2GeVmuons_DT', 'wb') as f:
-        # pickle.dump({'drifted_tracks':drifted_tracks}, f)
+    # save('1-2GeVmuons_RT', 'raw_tracks') #not working for some reason
+    with open('1-2GeVmuons_RT', 'wb') as f:
+        pickle.dump({'raw_tracks':raw_tracks}, f)
+    with open('1-2GeVmuons_DT', 'wb') as f:
+        pickle.dump({'raw_tracks':drifted_tracks}, f)
+        
     # event_energies = [meta['primary energy'] for meta in event_metas]
     # n_coarse_hits = [len(track.coarse_tiles_samples) for track in event_datas]
     # n_fine_hits = [len(track.pixel_samples) for track in event_datas]
