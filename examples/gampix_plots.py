@@ -26,8 +26,8 @@ def load(filename):
 v_drift = 0.16 #cm/us @ 500kV/cm
 pitches = {'coarse_hits':50, 'pixel_hits':10} #taken from readout_config/default.yaml
 
-input_file = '1-2GeVmuons_nonoise.h5'
-input_file_DT = '1-2GeVmuons_DT'
+input_file = '1-2GeVmuons_nonoise_p5_1.h5'
+input_file_DT = '1-2GeVmuons_DT_p5_1'
 
 ''' 'coarse or fine' - choosing which to analyse '''
 cf = 'coarse_hits'

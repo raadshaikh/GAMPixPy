@@ -76,7 +76,7 @@ def main(args):
         event_data = input_parser.get_sample(i)
         event_meta = input_parser.get_meta(i)
         
-        print(event_meta[0])
+        # print(event_meta[0])
         
         ##i was trying to find the maximum and minimum xyz positions of all sampled points in an event
         # print(torch.min(event_data.raw_track['position'][:,0]).item(),torch.max(event_data.raw_track['position'][:,0]).item())
@@ -125,9 +125,9 @@ def main(args):
             # om = output.OutputManager(args.output_file)
             om.add_entry(event_data, event_meta, event_id=i)
     # save('1-2GeVmuons_RT', 'raw_tracks') #not working for some reason
-    with open('1-2GeVmuons_RT', 'wb') as f:
+    with open('1-2GeVmuons_RT_p5_1', 'wb') as f:
         pickle.dump({'raw_tracks':raw_tracks}, f)
-    with open('1-2GeVmuons_DT', 'wb') as f:
+    with open('1-2GeVmuons_DT_p5_1', 'wb') as f:
         pickle.dump({'raw_tracks':drifted_tracks}, f)
         
     # event_energies = [meta['primary energy'] for meta in event_metas]

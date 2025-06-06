@@ -21,7 +21,7 @@ anode:
 coarse_tiles:
   type: coarse_tiles
   pitch:
-    value: 50
+    value: 5
     unit: cm
   gap:
     value: 0.01
@@ -43,7 +43,7 @@ coarse_tiles:
 pixels:
   type: pixels
   pitch:
-    value: 10
+    value: 1
     unit: cm
   power_per_pixel:
     value: 1.e-3
