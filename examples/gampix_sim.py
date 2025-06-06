@@ -128,7 +128,7 @@ def main(args):
     with open('1-2GeVmuons_RT_p5_1', 'wb') as f:
         pickle.dump({'raw_tracks':raw_tracks}, f)
     with open('1-2GeVmuons_DT_p5_1', 'wb') as f:
-        pickle.dump({'raw_tracks':drifted_tracks}, f)
+        pickle.dump({'drifted_tracks':drifted_tracks}, f)
         
     # event_energies = [meta['primary energy'] for meta in event_metas]
     # n_coarse_hits = [len(track.coarse_tiles_samples) for track in event_datas]

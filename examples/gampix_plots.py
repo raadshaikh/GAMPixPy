@@ -136,14 +136,14 @@ for i in range(n_events):
     true_qs = np.array(true_qs)
     excess = np.append(excess, (hit_qs-true_qs))
     ###### plt.scatter(hit_zs, hit_qs/true_qs, marker='.', alpha=0.3, label='{} MeV'.format(int(fh['meta']['primary energy'][meta_event_mask]))) #plot detected charge/true charge vs drift length
-    ###### plt.scatter(true_qs, hit_qs, marker='.', alpha=0.3, label='{} MeV'.format(int(fh['meta']['primary energy'][meta_event_mask]))) #plot detected charge vs true charge
-###### plt.axline(xy1=(0,0), slope=1, label='y=x', color='black') #plot 45 deg line
+    plt.scatter(true_qs, hit_qs, marker='.', alpha=0.3, label='{} MeV'.format(int(fh['meta']['primary energy'][meta_event_mask]))) #plot detected charge vs true charge
+plt.axline(xy1=(0,0), slope=1, label='y=x', color='black') #plot 45 deg line
 
-plt.hist(excess, bins=70, density=True)
-m, s = np.mean(excess), np.std(excess)
-x = np.linspace(m-4*s,m+4*s)
-print(m,s)
-plt.plot(x, np.exp(-0.5*((x-m)/s)**2)/np.sqrt(2*3.14159*s**2), alpha=0.5)
+# plt.hist(excess, bins=70, density=True)
+# m, s = np.mean(excess), np.std(excess)
+# x = np.linspace(m-4*s,m+4*s)
+# print(m,s)
+# plt.plot(x, np.exp(-0.5*((x-m)/s)**2)/np.sqrt(2*3.14159*s**2), alpha=0.5)
 plt.legend()
 plt.show()
 
